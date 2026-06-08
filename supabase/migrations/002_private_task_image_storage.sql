@@ -9,9 +9,9 @@ using (
   bucket_id = 'task-images'
   and exists (
     select 1
-    from tasks t
+    from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = current_company_id()
+      and t.company_id = public.current_company_id()
   )
 );
 
@@ -20,12 +20,12 @@ on storage.objects
 for insert
 with check (
   bucket_id = 'task-images'
-  and current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
-    from tasks t
+    from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = current_company_id()
+      and t.company_id = public.current_company_id()
   )
 );
 
@@ -34,22 +34,22 @@ on storage.objects
 for update
 using (
   bucket_id = 'task-images'
-  and current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
-    from tasks t
+    from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = current_company_id()
+      and t.company_id = public.current_company_id()
   )
 )
 with check (
   bucket_id = 'task-images'
-  and current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
-    from tasks t
+    from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = current_company_id()
+      and t.company_id = public.current_company_id()
   )
 );
 
@@ -58,11 +58,11 @@ on storage.objects
 for delete
 using (
   bucket_id = 'task-images'
-  and current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
-    from tasks t
+    from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = current_company_id()
+      and t.company_id = public.current_company_id()
   )
 );
