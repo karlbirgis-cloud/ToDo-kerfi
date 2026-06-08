@@ -2,6 +2,11 @@ update storage.buckets
 set public = false
 where id = 'task-images';
 
+drop policy if exists task_images_storage_select_company on storage.objects;
+drop policy if exists task_images_storage_insert_company on storage.objects;
+drop policy if exists task_images_storage_update_company on storage.objects;
+drop policy if exists task_images_storage_delete_company on storage.objects;
+
 create policy task_images_storage_select_company
 on storage.objects
 for select
@@ -11,7 +16,7 @@ using (
     select 1
     from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = public.current_company_id()
+      and t.company_id = public.app_current_company_id()
   )
 );
 
@@ -20,12 +25,12 @@ on storage.objects
 for insert
 with check (
   bucket_id = 'task-images'
-  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
     from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = public.current_company_id()
+      and t.company_id = public.app_current_company_id()
   )
 );
 
@@ -34,22 +39,22 @@ on storage.objects
 for update
 using (
   bucket_id = 'task-images'
-  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
     from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = public.current_company_id()
+      and t.company_id = public.app_current_company_id()
   )
 )
 with check (
   bucket_id = 'task-images'
-  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
     from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = public.current_company_id()
+      and t.company_id = public.app_current_company_id()
   )
 );
 
@@ -58,11 +63,11 @@ on storage.objects
 for delete
 using (
   bucket_id = 'task-images'
-  and public.current_role() in ('admin', 'manager', 'worker', 'contractor')
+  and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')
   and exists (
     select 1
     from public.tasks t
     where t.id = ((storage.foldername(name))[3])::uuid
-      and t.company_id = public.current_company_id()
+      and t.company_id = public.app_current_company_id()
   )
 );

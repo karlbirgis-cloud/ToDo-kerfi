@@ -200,7 +200,7 @@ begin
 end;
 $$;
 
-create or replace function current_company_id()
+create or replace function public.app_current_company_id()
 returns uuid
 language sql
 stable
@@ -210,7 +210,7 @@ as $$
   select company_id from profiles where id = auth.uid()
 $$;
 
-create or replace function current_role()
+create or replace function public.app_current_role()
 returns user_role
 language sql
 stable
@@ -235,39 +235,39 @@ alter table task_comments enable row level security;
 alter table task_status_history enable row level security;
 alter table task_activity_log enable row level security;
 
-create policy companies_select_same_company on companies for select using (id = current_company_id());
-create policy profiles_select_same_company on profiles for select using (company_id = current_company_id());
-create policy profiles_admin_write on profiles for all using (company_id = current_company_id() and current_role() = 'admin') with check (company_id = current_company_id() and current_role() = 'admin');
+create policy companies_select_same_company on companies for select using (id = public.app_current_company_id());
+create policy profiles_select_same_company on profiles for select using (company_id = public.app_current_company_id());
+create policy profiles_admin_write on profiles for all using (company_id = public.app_current_company_id() and public.app_current_role() = 'admin') with check (company_id = public.app_current_company_id() and public.app_current_role() = 'admin');
 
-create policy projects_select_company on projects for select using (company_id = current_company_id());
-create policy projects_write_admin_manager on projects for all using (company_id = current_company_id() and current_role() in ('admin', 'manager')) with check (company_id = current_company_id() and current_role() in ('admin', 'manager'));
+create policy projects_select_company on projects for select using (company_id = public.app_current_company_id());
+create policy projects_write_admin_manager on projects for all using (company_id = public.app_current_company_id() and public.app_current_role() in ('admin', 'manager')) with check (company_id = public.app_current_company_id() and public.app_current_role() in ('admin', 'manager'));
 
-create policy locations_select_company on locations for select using (exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id()));
-create policy locations_write_admin_manager on locations for all using (current_role() in ('admin', 'manager') and exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id())) with check (current_role() in ('admin', 'manager') and exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id()));
+create policy locations_select_company on locations for select using (exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id()));
+create policy locations_write_admin_manager on locations for all using (public.app_current_role() in ('admin', 'manager') and exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id())) with check (public.app_current_role() in ('admin', 'manager') and exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id()));
 
-create policy units_select_company on units for select using (exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id()));
-create policy units_write_admin_manager on units for all using (current_role() in ('admin', 'manager') and exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id())) with check (current_role() in ('admin', 'manager') and exists (select 1 from projects p where p.id = project_id and p.company_id = current_company_id()));
+create policy units_select_company on units for select using (exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id()));
+create policy units_write_admin_manager on units for all using (public.app_current_role() in ('admin', 'manager') and exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id())) with check (public.app_current_role() in ('admin', 'manager') and exists (select 1 from public.projects p where p.id = project_id and p.company_id = public.app_current_company_id()));
 
 create policy categories_read_auth on categories for select using (auth.uid() is not null);
-create policy categories_write_admin on categories for all using (current_role() = 'admin') with check (current_role() = 'admin');
+create policy categories_write_admin on categories for all using (public.app_current_role() = 'admin') with check (public.app_current_role() = 'admin');
 create policy subcategories_read_auth on subcategories for select using (auth.uid() is not null);
-create policy subcategories_write_admin on subcategories for all using (current_role() = 'admin') with check (current_role() = 'admin');
+create policy subcategories_write_admin on subcategories for all using (public.app_current_role() = 'admin') with check (public.app_current_role() = 'admin');
 
 create policy unit_categories_read_auth on unit_categories for select using (auth.uid() is not null);
-create policy unit_categories_write_admin_manager on unit_categories for all using (current_role() in ('admin', 'manager')) with check (current_role() in ('admin', 'manager'));
+create policy unit_categories_write_admin_manager on unit_categories for all using (public.app_current_role() in ('admin', 'manager')) with check (public.app_current_role() in ('admin', 'manager'));
 create policy unit_subcategories_read_auth on unit_subcategories for select using (auth.uid() is not null);
-create policy unit_subcategories_write_admin_manager on unit_subcategories for all using (current_role() in ('admin', 'manager')) with check (current_role() in ('admin', 'manager'));
+create policy unit_subcategories_write_admin_manager on unit_subcategories for all using (public.app_current_role() in ('admin', 'manager')) with check (public.app_current_role() in ('admin', 'manager'));
 
-create policy tasks_select_company on tasks for select using (company_id = current_company_id());
-create policy tasks_write_admin_manager on tasks for all using (company_id = current_company_id() and current_role() in ('admin', 'manager')) with check (company_id = current_company_id() and current_role() in ('admin', 'manager'));
-create policy tasks_worker_update_own on tasks for update using (company_id = current_company_id() and assigned_to_user_id = auth.uid() and current_role() in ('worker', 'contractor')) with check (company_id = current_company_id() and assigned_to_user_id = auth.uid());
+create policy tasks_select_company on tasks for select using (company_id = public.app_current_company_id());
+create policy tasks_write_admin_manager on tasks for all using (company_id = public.app_current_company_id() and public.app_current_role() in ('admin', 'manager')) with check (company_id = public.app_current_company_id() and public.app_current_role() in ('admin', 'manager'));
+create policy tasks_worker_update_own on tasks for update using (company_id = public.app_current_company_id() and assigned_to_user_id = auth.uid() and public.app_current_role() in ('worker', 'contractor')) with check (company_id = public.app_current_company_id() and assigned_to_user_id = auth.uid());
 
-create policy task_images_select_company on task_images for select using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()));
-create policy task_images_write_company on task_images for all using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()) and current_role() in ('admin', 'manager', 'worker', 'contractor')) with check (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()) and current_role() in ('admin', 'manager', 'worker', 'contractor'));
-create policy task_comments_select_company on task_comments for select using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()));
-create policy task_comments_write_company on task_comments for all using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()) and current_role() in ('admin', 'manager', 'worker', 'contractor')) with check (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()) and current_role() in ('admin', 'manager', 'worker', 'contractor'));
-create policy task_status_history_select_company on task_status_history for select using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()));
-create policy task_activity_log_select_company on task_activity_log for select using (exists (select 1 from tasks t where t.id = task_id and t.company_id = current_company_id()));
+create policy task_images_select_company on task_images for select using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()));
+create policy task_images_write_company on task_images for all using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()) and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')) with check (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()) and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor'));
+create policy task_comments_select_company on task_comments for select using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()));
+create policy task_comments_write_company on task_comments for all using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()) and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor')) with check (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()) and public.app_current_role() in ('admin', 'manager', 'worker', 'contractor'));
+create policy task_status_history_select_company on task_status_history for select using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()));
+create policy task_activity_log_select_company on task_activity_log for select using (exists (select 1 from public.tasks t where t.id = task_id and t.company_id = public.app_current_company_id()));
 
 insert into storage.buckets (id, name, public)
 values ('task-images', 'task-images', true)
