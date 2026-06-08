@@ -24,7 +24,6 @@ export function summarizeTasks(tasks: Task[]) {
     total: tasks.length,
     open: count("open"),
     in_progress: count("in_progress"),
-    blocked: count("blocked"),
     done,
     progress: percent(done, tasks.length)
   };

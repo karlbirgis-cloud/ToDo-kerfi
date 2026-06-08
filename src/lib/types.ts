@@ -10,7 +10,7 @@ export type UnitType =
   | "roof"
   | "outdoor"
   | "other";
-export type TaskStatus = "open" | "in_progress" | "blocked" | "done";
+export type TaskStatus = "open" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export type Profile = {

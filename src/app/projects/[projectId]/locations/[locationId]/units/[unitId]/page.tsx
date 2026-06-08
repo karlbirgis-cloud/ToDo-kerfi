@@ -25,7 +25,7 @@ export default function UnitPage({ params }: { params: Promise<{ projectId: stri
   }
 
   const tasks = tasksFor(data, { unit_id: unit.id }).sort((a, b) => {
-    const statusWeight = { blocked: 0, open: 1, in_progress: 2, done: 3 };
+    const statusWeight = { open: 0, in_progress: 1, done: 2 };
     return statusWeight[a.status] - statusWeight[b.status] || a.title.localeCompare(b.title, "is");
   });
   const summary = summarizeTasks(tasks);

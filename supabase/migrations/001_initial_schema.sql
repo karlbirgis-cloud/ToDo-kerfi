@@ -3,7 +3,7 @@ create extension if not exists "pgcrypto";
 create type user_role as enum ('admin', 'manager', 'worker', 'contractor', 'viewer');
 create type project_status as enum ('active', 'paused', 'done');
 create type unit_type as enum ('apartment', 'common_area', 'stairwell', 'technical_room', 'storage', 'garage', 'roof', 'outdoor', 'other');
-create type task_status as enum ('open', 'in_progress', 'blocked', 'done');
+create type task_status as enum ('open', 'in_progress', 'done');
 create type task_priority as enum ('low', 'medium', 'high', 'urgent');
 
 create table companies (

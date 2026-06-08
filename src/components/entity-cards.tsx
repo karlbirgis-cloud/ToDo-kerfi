@@ -26,7 +26,6 @@ export function ProjectCard({ project, data }: { project: Project; data: AppData
           <Metric label="Rými" value={units.length} />
           <Metric label="Opin" value={summary.open} />
           <Metric label="Lokið" value={summary.done} />
-          <Metric label="Föst" value={summary.blocked} tone="text-red-700" />
           <Metric label="Framv." value={`${summary.progress}%`} />
         </div>
         <div className="mt-4"><ProgressBar value={summary.progress} /></div>
@@ -100,10 +99,9 @@ function Metric({ label, value, tone }: { label: string; value: string | number;
 function Stats({ summary }: { summary: ReturnType<typeof summarizeTasks> }) {
   return (
     <>
-      <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
         <Metric label="Opin" value={summary.open} />
         <Metric label="Vinnslu" value={summary.in_progress} />
-        <Metric label="Föst" value={summary.blocked} tone="text-red-700" />
         <Metric label="Lokið" value={summary.done} />
       </div>
       <div className="mt-4 flex items-center gap-3">

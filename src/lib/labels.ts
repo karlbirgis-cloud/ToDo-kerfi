@@ -23,7 +23,6 @@ export const unitTypeLabels: Record<UnitType, string> = {
 export const statusLabels: Record<TaskStatus, string> = {
   open: "Ólokið",
   in_progress: "Í vinnslu",
-  blocked: "Bíður / fast",
   done: "Lokið"
 };
 
@@ -37,7 +36,6 @@ export const priorityLabels: Record<TaskPriority, string> = {
 export const statusTone: Record<TaskStatus, string> = {
   open: "bg-blue-50 text-blue-800 ring-blue-200",
   in_progress: "bg-amber-50 text-amber-900 ring-amber-200",
-  blocked: "bg-red-50 text-red-800 ring-red-200",
   done: "bg-emerald-50 text-emerald-800 ring-emerald-200"
 };
 

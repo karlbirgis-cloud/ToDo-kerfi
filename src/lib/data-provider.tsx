@@ -38,7 +38,22 @@ const storageKey = "todo-kerfi-bryggjuhverfi-data-v3";
 function hydrateData(): AppData {
   if (typeof window === "undefined") return initialData;
   const saved = window.localStorage.getItem(storageKey);
-  return saved ? (JSON.parse(saved) as AppData) : initialData;
+  return normalizeTaskStatuses(saved ? (JSON.parse(saved) as AppData) : initialData);
+}
+
+function normalizeTaskStatuses(data: AppData): AppData {
+  return {
+    ...data,
+    tasks: data.tasks.map((task) => ({
+      ...task,
+      status: task.status === ("blocked" as TaskStatus) ? "open" : task.status
+    })),
+    task_status_history: data.task_status_history.map((item) => ({
+      ...item,
+      old_status: item.old_status === ("blocked" as TaskStatus) ? "open" : item.old_status,
+      new_status: item.new_status === ("blocked" as TaskStatus) ? "open" : item.new_status
+    }))
+  };
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -66,7 +81,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (!response.ok) throw new Error("Cloud data could not be loaded.");
         const payload = (await response.json()) as { data: AppData };
         if (isMounted) {
-          setData(payload.data);
+          setData(normalizeTaskStatuses(payload.data));
           setPersistenceMode("cloud");
         }
       } catch (error) {

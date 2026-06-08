@@ -14,7 +14,6 @@ const filters: Array<{ label: string; value: "all" | "mine" | "overdue" | TaskSt
   { label: "Öll", value: "all" },
   { label: "Ólokið", value: "open" },
   { label: "Í vinnslu", value: "in_progress" },
-  { label: "Bíður / fast", value: "blocked" },
   { label: "Lokið", value: "done" },
   { label: "Mín atriði", value: "mine" },
   { label: "Fram yfir skiladag", value: "overdue" }
@@ -34,7 +33,7 @@ export default function SubcategoryPage({ params }: { params: Promise<{ projectI
     if (task.subcategory_id !== subcategoryId || task.unit_id !== unitId) return false;
     if (filter === "mine" && task.assigned_to_user_id !== currentUserId) return false;
     if (filter === "overdue" && !isOverdue(task)) return false;
-    if (["open", "in_progress", "blocked", "done"].includes(filter) && task.status !== filter) return false;
+    if (["open", "in_progress", "done"].includes(filter) && task.status !== filter) return false;
     const assignee = data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name ?? "";
     const haystack = `${task.title} ${task.description ?? ""} ${assignee}`.toLowerCase();
     return haystack.includes(query.toLowerCase());

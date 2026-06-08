@@ -14,17 +14,16 @@ export default function DashboardPage() {
   const activeTasks = data.tasks
     .filter((task) => task.status === "open" || task.status === "in_progress")
     .sort((a, b) => {
-      const statusOrder = { in_progress: 0, open: 1, blocked: 2, done: 3 };
+      const statusOrder = { in_progress: 0, open: 1, done: 2 };
       return statusOrder[a.status] - statusOrder[b.status] || b.created_at.localeCompare(a.created_at);
     });
 
   return (
     <AppShell>
       <PageHeader title="Dashboard" kicker="Yfirlit" />
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Opin atriði" value={summary.open} />
         <Stat label="Í vinnslu" value={summary.in_progress} />
-        <Stat label="Föst atriði" value={summary.blocked} tone="text-red-700" />
         <Stat label="Lokið" value={summary.done} tone="text-emerald-700" />
         <Stat label="Fram yfir skiladag" value={overdue} tone="text-orange-700" />
       </section>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Circle, Clock, HardHat, Loader2, Plus, Search, UserRound } from "lucide-react";
+import { CheckCircle2, Circle, Clock, HardHat, Loader2, Plus, Search, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { priorityLabels, priorityTone, statusLabels, statusTone } from "@/lib/labels";
 import type { TaskPriority, TaskStatus } from "@/lib/types";
@@ -50,7 +50,7 @@ export function ProgressBar({ value }: { value: number }) {
 }
 
 export function StatusBadge({ status }: { status: TaskStatus }) {
-  const icons = { open: Circle, in_progress: Clock, blocked: AlertTriangle, done: CheckCircle2 };
+  const icons = { open: Circle, in_progress: Clock, done: CheckCircle2 };
   const Icon = icons[status];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1", statusTone[status])}>
