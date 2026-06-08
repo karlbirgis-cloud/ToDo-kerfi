@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, Card, ProgressBar, StatusBadge, UserPill } from "@/components/ui";
+import { PageHeader, Card, StatusBadge, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task } from "@/lib/types";
-import { cn, isOverdue, summarizeTasks, tasksFor } from "@/lib/utils";
+import { cn, isOverdue, summarizeTasks } from "@/lib/utils";
 
 type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "assignee" | "status";
 type SortDirection = "asc" | "desc";
@@ -43,29 +43,13 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-4 font-bold text-ink">Framvinda verkefna</h2>
-          <div className="grid gap-4">
-            {data.projects.map((project) => {
-              const projectSummary = summarizeTasks(tasksFor(data, { project_id: project.id }));
-              return (
-                <div key={project.id}>
-                  <div className="mb-2 flex justify-between text-sm font-semibold"><span>{project.full_name}</span><span>{projectSummary.progress}%</span></div>
-                  <ProgressBar value={projectSummary.progress} />
-                </div>
-              );
-            })}
+      <section className="mt-6">
+        <Card className="p-0">
+          <div className="border-b border-slate-100 p-4">
+            <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
+            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín ókláruðu og virku atriði.</p>
           </div>
-        </Card>
-        <Card>
-          <h2 className="mb-4 font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
-          <div className="grid gap-3">
-            {data.profiles.map((profile) => {
-              const items = data.tasks.filter((task) => task.assigned_to_user_id === profile.id);
-              return <div key={profile.id} className="flex items-center justify-between rounded-md bg-slate-50 p-3 text-sm"><span className="font-semibold">{profile.name}</span><span>{items.length} atriði</span></div>;
-            })}
-          </div>
+          <AssigneeTaskGroups tasks={activeTasks} data={data} />
         </Card>
       </section>
     </AppShell>
@@ -76,7 +60,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
   return <Card><p className={`text-3xl font-bold ${tone ?? "text-ink"}`}>{value}</p><p className="mt-1 text-sm font-medium text-slate-500">{label}</p></Card>;
 }
 
-function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
+function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[]; data: AppData; showAssignee?: boolean }) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<DashboardSortKey>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -107,7 +91,7 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1320px] border-collapse text-left text-sm">
+        <table className={cn("w-full border-collapse text-left text-sm", showAssignee ? "min-w-[1320px]" : "min-w-[1120px]")}>
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
               <Th sortKey="project" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Verkefni</Th>
@@ -117,7 +101,7 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
               <Th sortKey="description" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Lýsing</Th>
               <Th sortKey="category" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Flokkur</Th>
               <Th sortKey="subcategory" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Undirflokkur</Th>
-              <Th sortKey="assignee" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Úthlutun á</Th>
+              {showAssignee ? <Th sortKey="assignee" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Úthlutun á</Th> : null}
               <Th sortKey="status" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Staða</Th>
             </tr>
           </thead>
@@ -142,7 +126,7 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
                   <Td className="max-w-sm text-slate-600"><span className="line-clamp-2">{task.description || "-"}</span></Td>
                   <Td>{row.category}</Td>
                   <Td>{row.subcategory}</Td>
-                  <Td><UserPill name={row.assignee} /></Td>
+                  {showAssignee ? <Td><UserPill name={row.assignee} /></Td> : null}
                   <Td><StatusBadge status={task.status} /></Td>
                 </tr>
               );
@@ -162,7 +146,7 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
             >
               <div className="flex flex-wrap gap-2">
                 <StatusBadge status={task.status} />
-                <UserPill name={row.assignee} />
+                {showAssignee ? <UserPill name={row.assignee} /> : null}
               </div>
               <h3 className="mt-3 font-bold text-ink">{task.title}</h3>
               <p className="mt-1 line-clamp-2 text-sm text-slate-600">{task.description || "-"}</p>
@@ -178,6 +162,46 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
         })}
       </div>
     </>
+  );
+}
+
+function AssigneeTaskGroups({ tasks, data }: { tasks: Task[]; data: AppData }) {
+  const groups = data.profiles
+    .map((profile) => ({
+      profile,
+      tasks: tasks.filter((task) => task.assigned_to_user_id === profile.id)
+    }))
+    .filter((group) => group.tasks.length > 0)
+    .sort((a, b) => a.profile.name.localeCompare(b.profile.name, "is", { sensitivity: "base" }));
+
+  const unassignedTasks = tasks.filter((task) => !task.assigned_to_user_id);
+
+  if (groups.length === 0 && unassignedTasks.length === 0) {
+    return <div className="p-6 text-sm text-slate-600">Engin ókláruð atriði eru úthlutuð eins og er.</div>;
+  }
+
+  return (
+    <div className="grid gap-5 p-4">
+      {groups.map((group) => (
+        <section key={group.profile.id} className="overflow-hidden rounded-md border border-slate-200">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <h3 className="font-bold text-ink">{group.profile.name}</h3>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{group.tasks.length} atriði</span>
+          </div>
+          <DashboardTaskTable tasks={group.tasks} data={data} showAssignee={false} />
+        </section>
+      ))}
+
+      {unassignedTasks.length > 0 ? (
+        <section className="overflow-hidden rounded-md border border-slate-200">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <h3 className="font-bold text-ink">Óúthlutað</h3>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{unassignedTasks.length} atriði</span>
+          </div>
+          <DashboardTaskTable tasks={unassignedTasks} data={data} showAssignee={false} />
+        </section>
+      ) : null}
+    </div>
   );
 }
 
