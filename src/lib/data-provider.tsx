@@ -28,7 +28,7 @@ type DataContextValue = {
   reopenTask(taskId: string): void;
   deleteTask(taskId: string): void;
   addComment(taskId: string, comment: string): void;
-  addTaskImages(taskId: string, files: FileList | File[]): void;
+  addTaskImages(taskId: string, files: FileList | File[]): Promise<void>;
   resetDemoData(): void;
 };
 
@@ -296,9 +296,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           draft.task_activity_log.push({ id: makeId("log"), task_id: taskId, user_id: currentUserId, action: "comment_created", metadata: {}, created_at: todayIso() });
         });
       },
-      addTaskImages(taskId, files) {
+      async addTaskImages(taskId, files) {
+        const fileList = Array.from(files);
+        if (fileList.length === 0) return;
+
+        if (persistenceMode === "cloud") {
+          const formData = new FormData();
+          formData.set("taskId", taskId);
+          fileList.forEach((file) => formData.append("files", file));
+
+          const response = await fetch("/api/task-images", {
+            method: "POST",
+            body: formData
+          });
+          if (!response.ok) throw new Error("Image upload failed.");
+
+          const payload = (await response.json()) as { images: Array<{ image_url: string; storage_path: string }> };
+          update((draft) => {
+            payload.images.forEach((image) => {
+              draft.task_images.push({
+                id: makeId("image"),
+                task_id: taskId,
+                image_url: image.image_url,
+                storage_path: image.storage_path,
+                uploaded_by_user_id: currentUserId,
+                created_at: todayIso()
+              });
+            });
+          });
+          return;
+        }
+
         update((draft) => {
-          Array.from(files).forEach((file) => {
+          fileList.forEach((file) => {
             draft.task_images.push({
               id: makeId("image"),
               task_id: taskId,
@@ -314,7 +344,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setData(initialData);
       }
     };
-  }, [data]);
+  }, [data, persistenceMode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

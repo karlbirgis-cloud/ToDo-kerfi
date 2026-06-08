@@ -12,6 +12,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const { taskId } = use(params);
   const { data, addComment, addTaskImages, reopenTask } = useAppData();
   const [comment, setComment] = useState("");
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const task = data.tasks.find((item) => item.id === taskId);
   if (!task) return <AppShell><EmptyState title="Atriði fannst ekki" body="Atriðið gæti hafa verið eytt." /></AppShell>;
   const project = data.projects.find((item) => item.id === task.project_id);
@@ -46,8 +47,25 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
           <Card>
             <h2 className="mb-3 flex items-center gap-2 font-bold"><Camera className="h-4 w-4" /> Myndir</h2>
             <label className="touch-target mb-4 flex cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-600">
-              Bæta við myndum
-              <input className="sr-only" type="file" accept="image/*" capture="environment" multiple onChange={(event) => event.target.files && addTaskImages(task.id, event.target.files)} />
+              {isUploadingImages ? "Vista myndir..." : "Bæta við myndum"}
+              <input
+                className="sr-only"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                disabled={isUploadingImages}
+                onChange={async (event) => {
+                  if (!event.target.files) return;
+                  setIsUploadingImages(true);
+                  try {
+                    await addTaskImages(task.id, event.target.files);
+                    event.target.value = "";
+                  } finally {
+                    setIsUploadingImages(false);
+                  }
+                }}
+              />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               {images.map((image) => <img key={image.id} src={image.image_url} alt="" className="h-48 w-full rounded-md object-cover" />)}

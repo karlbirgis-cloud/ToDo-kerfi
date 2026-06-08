@@ -127,6 +127,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
   const { data, createTask, addTaskImages } = useAppData();
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const unitCategories = data.unit_categories
     .filter((item) => item.unit_id === unitId)
     .map((item) => data.categories.find((category) => category.id === item.category_id))
@@ -143,25 +144,33 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
     <form
       id="new-task"
       className="grid gap-3"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
+        setIsSubmitting(true);
         const form = new FormData(event.currentTarget);
         const selectedSubcategoryId = String(form.get("subcategory_id") ?? "");
-        if (!categoryId || !selectedSubcategoryId) return;
+        if (!categoryId || !selectedSubcategoryId) {
+          setIsSubmitting(false);
+          return;
+        }
 
-        const id = createTask({
-          project_id: projectId,
-          location_id: locationId,
-          unit_id: unitId,
-          category_id: categoryId,
-          subcategory_id: selectedSubcategoryId,
-          title: String(form.get("title")),
-          description: String(form.get("description") ?? ""),
-          assigned_to_user_id: String(form.get("assigned_to_user_id") ?? ""),
-          priority: "medium"
-        });
-        if (imageFiles.length > 0) addTaskImages(id, imageFiles);
-        router.push(`/tasks/${id}`);
+        try {
+          const id = createTask({
+            project_id: projectId,
+            location_id: locationId,
+            unit_id: unitId,
+            category_id: categoryId,
+            subcategory_id: selectedSubcategoryId,
+            title: String(form.get("title")),
+            description: String(form.get("description") ?? ""),
+            assigned_to_user_id: String(form.get("assigned_to_user_id") ?? ""),
+            priority: "medium"
+          });
+          if (imageFiles.length > 0) await addTaskImages(id, imageFiles);
+          router.push(`/tasks/${id}`);
+        } finally {
+          setIsSubmitting(false);
+        }
       }}
     >
       <Field name="title" label="Titill" placeholder="T.d. laga rispu á hurð" required />
@@ -211,7 +220,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
           ))}
         </div>
       ) : null}
-      <Button disabled={!categoryId || unitSubcategories.length === 0}><Save className="h-4 w-4" /> Stofna atriði</Button>
+      <Button disabled={!categoryId || unitSubcategories.length === 0 || isSubmitting}><Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna atriði"}</Button>
     </form>
   );
 }
