@@ -67,6 +67,8 @@ Server-only secrets:
 
 Settu aldrei server-only secrets í client components, browser code eða GitHub. `.env.local` á að vera local-only og er í `.gitignore`.
 
+Production appið notar `SUPABASE_SERVICE_ROLE_KEY` aðeins í server-side API route til að vista sameiginlegt app state í Supabase. Þetta gildi þarf að vera í Vercel Environment Variables, en það má aldrei byrja á `NEXT_PUBLIC_`.
+
 ### GitHub Setup
 
 1. Stofnaðu GitHub repository, til dæmis `todo-kerfi`.
@@ -103,7 +105,8 @@ supabase db execute --file supabase/seed/001_categories.sql
 
 5. Staðfestu að RLS sé virkt á öllum app-töflum.
 6. Staðfestu að Storage bucket `task-images` sé private.
-7. Prófaðu login, task creation og myndaupphleðslu í production.
+7. Staðfestu að `app_state` taflan sé til. Hún geymir sameiginlegt production state svo sími og tölva sjái sömu atriði.
+8. Prófaðu login, task creation og myndaupphleðslu í production.
 
 Varúð:
 
@@ -307,4 +310,5 @@ Byrjaðu einfalt:
 - Ef login redirect fer á ranga slóð, berðu saman `NEXT_PUBLIC_SITE_URL` og Supabase Auth redirect URLs.
 - Ef myndaupphleðsla failar, athugaðu `task-images` bucket, Storage policies og að notandinn hafi rétt hlutverk.
 - Ef production sýnir engin gögn, athugaðu að migrations og seed hafi verið keyrð á réttu Supabase project.
+- Ef gögn sem eru stofnuð í síma birtast ekki í tölvu, athugaðu að `SUPABASE_SERVICE_ROLE_KEY` sé til í Vercel og að deployment hafi verið redeploy-að eftir að breytan var sett inn.
 - Ef secrets sjást í GitHub, rotate-aðu þeim strax í Supabase/Vercel og fjarlægðu úr git history.

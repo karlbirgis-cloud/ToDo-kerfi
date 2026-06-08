@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { initialData } from "./mock-data";
+import { hasSupabaseEnv } from "./supabase/client";
 import type { AppData, Profile, Task, TaskStatus, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
 
@@ -42,15 +43,68 @@ function hydrateData(): AppData {
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
+  const [isReady, setIsReady] = useState(false);
+  const [persistenceMode, setPersistenceMode] = useState<"cloud" | "local">(hasSupabaseEnv ? "cloud" : "local");
   const currentUserId = "user_manager";
+  const useCloudData = hasSupabaseEnv;
 
   useEffect(() => {
-    setData(hydrateData());
-  }, []);
+    let isMounted = true;
+
+    async function loadData() {
+      if (!useCloudData) {
+        if (isMounted) {
+          setData(hydrateData());
+          setPersistenceMode("local");
+          setIsReady(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/app-data", { cache: "no-store" });
+        if (!response.ok) throw new Error("Cloud data could not be loaded.");
+        const payload = (await response.json()) as { data: AppData };
+        if (isMounted) {
+          setData(payload.data);
+          setPersistenceMode("cloud");
+        }
+      } catch (error) {
+        console.error(error);
+        if (isMounted) {
+          setData(hydrateData());
+          setPersistenceMode("local");
+        }
+      } finally {
+        if (isMounted) setIsReady(true);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [useCloudData]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(data));
-  }, [data]);
+    if (!isReady) return;
+
+    if (persistenceMode === "local") {
+      if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(data));
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      fetch("/api/app-data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data })
+      }).catch((error) => console.error(error));
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [data, isReady, persistenceMode]);
 
   const value = useMemo<DataContextValue>(() => {
     function createDefaultStructureForUnit(nextData: AppData, unitId: string) {
