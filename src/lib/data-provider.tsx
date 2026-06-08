@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./auth-provider";
 import { initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
 import type { AppData, Profile, Task, TaskStatus, UnitType } from "./types";
@@ -9,7 +10,7 @@ import { makeId, todayIso } from "./utils";
 type NewProjectInput = { project_number: string; name: string };
 type NewLocationInput = { project_id: string; name: string; description?: string };
 type NewUnitInput = { project_id: string; location_id: string; name: string; unit_type: UnitType; floor?: string };
-type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> & Partial<Pick<Profile, "phone" | "work_scope" | "employer">>;
+type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> & Partial<Pick<Profile, "id" | "phone" | "work_scope" | "employer">>;
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
   Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "due_date">>;
 
@@ -57,10 +58,14 @@ function normalizeTaskStatuses(data: AppData): AppData {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [data, setData] = useState<AppData>(initialData);
   const [isReady, setIsReady] = useState(false);
   const [persistenceMode, setPersistenceMode] = useState<"cloud" | "local">(hasSupabaseEnv ? "cloud" : "local");
-  const currentUserId = "user_manager";
+  const currentUserId =
+    data.profiles.find((profile) => profile.email.toLowerCase() === user?.email?.toLowerCase())?.id ??
+    user?.id ??
+    "user_manager";
   const useCloudData = hasSupabaseEnv;
 
   useEffect(() => {
@@ -214,7 +219,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return ids;
       },
       createProfile(input) {
-        const id = makeId("user");
+        const id = input.id ?? makeId("user");
         update((draft) => {
           draft.profiles.push({
             id,
@@ -359,7 +364,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setData(initialData);
       }
     };
-  }, [data, persistenceMode]);
+  }, [currentUserId, data, persistenceMode]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

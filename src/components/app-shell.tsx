@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BarChart3, FolderKanban, HardHat, Home, Menu, ShieldCheck, UserCheck } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BarChart3, FolderKanban, HardHat, Home, LogOut, Menu, ShieldCheck, UserCheck } from "lucide-react";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/auth-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -14,8 +16,22 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { session, user, isLoading, signOut } = useAuth();
   const isLogin = pathname === "/login";
+
+  useEffect(() => {
+    if (isLogin) return;
+    if (!isLoading && !session) router.replace("/login");
+  }, [isLoading, isLogin, session, router]);
+
   if (isLogin) return <>{children}</>;
+
+  if (isLoading) {
+    return <div className="grid min-h-screen place-items-center text-sm font-semibold text-slate-500">Hleð innskráningu...</div>;
+  }
+
+  if (!session) return null;
 
   return (
     <div className="min-h-screen">
@@ -36,11 +52,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          <div className="hidden items-center gap-3 md:flex">
+            <span className="max-w-48 truncate text-sm font-semibold text-slate-600">{user?.email}</span>
+            <button
+              className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              onClick={async () => {
+                await signOut();
+                router.replace("/login");
+              }}
+            >
+              <LogOut className="h-4 w-4" /> Útskrá
+            </button>
+          </div>
           <Menu className="h-6 w-6 text-slate-500 md:hidden" />
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-5 sm:py-8">{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
         {nav.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -50,6 +78,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
+        <button
+          className="flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-semibold text-slate-600"
+          onClick={async () => {
+            await signOut();
+            router.replace("/login");
+          }}
+        >
+          <LogOut className="h-5 w-5" /> Útskrá
+        </button>
       </nav>
       <div className="h-16 md:hidden" />
     </div>

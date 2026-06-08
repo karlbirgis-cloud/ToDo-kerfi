@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-provider";
 import { DataProvider } from "@/lib/data-provider";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="is">
       <body className={`${inter.className} antialiased`}>
-        <DataProvider>{children}</DataProvider>
+        <AuthProvider>
+          <DataProvider>{children}</DataProvider>
+        </AuthProvider>
       </body>
     </html>
   );

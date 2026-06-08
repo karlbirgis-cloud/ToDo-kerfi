@@ -187,6 +187,21 @@ https://to-do-kerfi.vercel.app
 
 `NEXT_PUBLIC_SITE_URL` þarf að passa við production domain. Prófaðu login, logout, password reset og magic links eftir að domain er tengt.
 
+### Fyrsti Innskráningarnotandi
+
+Kerfið notar Supabase Auth fyrir innskráningu. Fyrsti notandinn þarf að vera stofnaður í Supabase Dashboard áður en hægt er að nota Admin síðuna til að stofna fleiri notendur.
+
+1. Farðu í Supabase → Authentication → Users.
+2. Stofnaðu notanda með netfanginu:
+
+```text
+verkstjori@bryggjuhverfi.is
+```
+
+3. Settu tímabundið lykilorð.
+4. Skráðu þig inn í appið með því netfangi.
+5. Farðu í `/admin/users` og stofnaðu fleiri notendur. Admin formið býr þá bæði til Supabase Auth notanda og profile í kerfinu.
+
 ### Vercel Deployment
 
 1. Stofnaðu eða opnaðu Vercel account.
