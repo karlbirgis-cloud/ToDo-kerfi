@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { session, user, isLoading, signOut } = useAuth();
   const isLogin = pathname === "/login";
+  const isWidePage = pathname.startsWith("/dashboard");
 
   useEffect(() => {
     if (isLogin) return;
@@ -36,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <div className={cn("mx-auto flex h-16 items-center justify-between px-4", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>
           <Link href="/dashboard" className="flex items-center gap-2 font-bold text-ink">
             <span className="flex h-9 w-9 items-center justify-center rounded-md bg-ink text-white"><HardHat className="h-5 w-5" /></span>
             <span>Verklisti</span>
@@ -67,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Menu className="h-6 w-6 text-slate-500 md:hidden" />
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-5 sm:py-8">{children}</main>
+      <main className={cn("mx-auto px-4 py-5 sm:py-8", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
         {nav.map((item) => {
           const active = pathname.startsWith(item.href);

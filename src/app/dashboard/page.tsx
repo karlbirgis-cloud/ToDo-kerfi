@@ -1,11 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Card, ProgressBar, StatusBadge, UserPill } from "@/components/ui";
+import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task } from "@/lib/types";
 import { cn, isOverdue, summarizeTasks, tasksFor } from "@/lib/utils";
+
+type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "assignee" | "status";
+type SortDirection = "asc" | "desc";
 
 export default function DashboardPage() {
   const { data } = useAppData();
@@ -73,6 +78,27 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
 
 function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   const router = useRouter();
+  const [sortKey, setSortKey] = useState<DashboardSortKey>("status");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const aValue = getSortValue(a, data, sortKey);
+      const bValue = getSortValue(b, data, sortKey);
+      const result = aValue.localeCompare(bValue, "is", { sensitivity: "base", numeric: true });
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [data, sortDirection, sortKey, tasks]);
+
+  function toggleSort(nextKey: DashboardSortKey) {
+    if (nextKey === sortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  }
 
   if (tasks.length === 0) {
     return <div className="p-6 text-sm text-slate-600">Engin ókláruð atriði eða atriði í vinnslu.</div>;
@@ -81,22 +107,22 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1320px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
-              <Th>Verkefni</Th>
-              <Th>Gata</Th>
-              <Th>Íbúð</Th>
-              <Th>Titill</Th>
-              <Th>Lýsing</Th>
-              <Th>Flokkur</Th>
-              <Th>Undirflokkur</Th>
-              <Th>Úthlutun á</Th>
-              <Th>Staða</Th>
+              <Th sortKey="project" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Verkefni</Th>
+              <Th sortKey="location" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Gata</Th>
+              <Th sortKey="unit" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Íbúð</Th>
+              <Th sortKey="title" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Titill</Th>
+              <Th sortKey="description" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Lýsing</Th>
+              <Th sortKey="category" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Flokkur</Th>
+              <Th sortKey="subcategory" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Undirflokkur</Th>
+              <Th sortKey="assignee" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Úthlutun á</Th>
+              <Th sortKey="status" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Staða</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {tasks.map((task) => {
+            {sortedTasks.map((task) => {
               const row = getDashboardTaskRow(task, data);
               return (
                 <tr
@@ -126,7 +152,7 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
       </div>
 
       <div className="grid gap-3 p-3 md:hidden">
-        {tasks.map((task) => {
+        {sortedTasks.map((task) => {
           const row = getDashboardTaskRow(task, data);
           return (
             <button
@@ -155,6 +181,23 @@ function DashboardTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   );
 }
 
+function getSortValue(task: Task, data: AppData, sortKey: DashboardSortKey) {
+  const row = getDashboardTaskRow(task, data);
+  const values: Record<DashboardSortKey, string> = {
+    project: row.project,
+    location: row.location,
+    unit: row.unit,
+    title: task.title,
+    description: task.description ?? "",
+    category: row.category,
+    subcategory: row.subcategory,
+    assignee: row.assignee ?? "Óúthlutað",
+    status: statusLabels[task.status]
+  };
+
+  return values[sortKey];
+}
+
 function getDashboardTaskRow(task: Task, data: AppData) {
   return {
     project: data.projects.find((project) => project.id === task.project_id)?.full_name ?? "-",
@@ -166,8 +209,33 @@ function getDashboardTaskRow(task: Task, data: AppData) {
   };
 }
 
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-4 py-3">{children}</th>;
+function Th({
+  children,
+  sortKey,
+  activeSortKey,
+  direction,
+  onSort
+}: {
+  children: React.ReactNode;
+  sortKey: DashboardSortKey;
+  activeSortKey: DashboardSortKey;
+  direction: SortDirection;
+  onSort: (key: DashboardSortKey) => void;
+}) {
+  const isActive = sortKey === activeSortKey;
+
+  return (
+    <th className="px-4 py-3">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn("flex w-full items-center gap-1 text-left uppercase hover:text-ink", isActive && "text-ink")}
+      >
+        {children}
+        <span className="text-[10px]">{isActive ? (direction === "asc" ? "A-Ö" : "Ö-A") : ""}</span>
+      </button>
+    </th>
+  );
 }
 
 function Td({ children, className }: { children: React.ReactNode; className?: string }) {
