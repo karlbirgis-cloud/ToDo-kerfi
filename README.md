@@ -47,7 +47,7 @@ Settu þessi gildi í `.env.local` fyrir local development og í Vercel Project 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_SITE_URL=
+NEXT_PUBLIC_SITE_URL=https://to-do-kerfi.vercel.app
 NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=task-images
 SUPABASE_SERVICE_ROLE_KEY=
 ```
@@ -172,13 +172,14 @@ http://localhost:3001
 Production:
 
 ```text
-https://app.fyrirtaeki.is
+https://to-do-kerfi.vercel.app
 ```
 
 Vercel preview:
 
 ```text
 https://*.vercel.app
+https://to-do-kerfi.vercel.app
 ```
 
 `NEXT_PUBLIC_SITE_URL` þarf að passa við production domain. Prófaðu login, logout, password reset og magic links eftir að domain er tengt.
