@@ -36,20 +36,20 @@ export default function DashboardPage() {
       <section className="mt-6">
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
-            <h2 className="font-bold text-ink">Ókláruð og í vinnslu</h2>
-            <p className="mt-1 text-sm text-slate-600">{activeTasks.length} atriði sem þarf að fylgja eftir.</p>
+            <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
+            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín ókláruðu og virku atriði.</p>
           </div>
-          <DashboardTaskTable tasks={activeTasks} data={data} />
+          <AssigneeTaskGroups tasks={activeTasks} data={data} />
         </Card>
       </section>
 
       <section className="mt-6">
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
-            <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
-            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín ókláruðu og virku atriði.</p>
+            <h2 className="font-bold text-ink">Ókláruð og í vinnslu</h2>
+            <p className="mt-1 text-sm text-slate-600">{activeTasks.length} atriði sem þarf að fylgja eftir.</p>
           </div>
-          <AssigneeTaskGroups tasks={activeTasks} data={data} />
+          <DashboardTaskTable tasks={activeTasks} data={data} />
         </Card>
       </section>
     </AppShell>
