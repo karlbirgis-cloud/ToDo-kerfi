@@ -14,6 +14,7 @@ type SortDirection = "asc" | "desc";
 
 export default function DashboardPage() {
   const { data } = useAppData();
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const summary = summarizeTasks(data.tasks);
   const overdue = data.tasks.filter(isOverdue).length;
   const activeTasks = data.tasks
@@ -22,6 +23,7 @@ export default function DashboardPage() {
       const statusOrder = { in_progress: 0, open: 1, done: 2 };
       return statusOrder[a.status] - statusOrder[b.status] || b.created_at.localeCompare(a.created_at);
     });
+  const filteredActiveTasks = selectedProjectId ? activeTasks.filter((task) => task.project_id === selectedProjectId) : activeTasks;
 
   return (
     <AppShell>
@@ -34,12 +36,16 @@ export default function DashboardPage() {
       </section>
 
       <section className="mt-6">
+        <ProjectFilter data={data} selectedProjectId={selectedProjectId} onChange={setSelectedProjectId} />
+      </section>
+
+      <section className="mt-4">
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
             <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín ókláruðu og virku atriði.</p>
           </div>
-          <AssigneeTaskGroups tasks={activeTasks} data={data} />
+          <AssigneeTaskGroups tasks={filteredActiveTasks} data={data} />
         </Card>
       </section>
 
@@ -47,9 +53,9 @@ export default function DashboardPage() {
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Ókláruð og í vinnslu</h2>
-            <p className="mt-1 text-sm text-slate-600">{activeTasks.length} atriði sem þarf að fylgja eftir.</p>
+            <p className="mt-1 text-sm text-slate-600">{filteredActiveTasks.length} atriði sem þarf að fylgja eftir.</p>
           </div>
-          <DashboardTaskTable tasks={activeTasks} data={data} />
+          <DashboardTaskTable tasks={filteredActiveTasks} data={data} />
         </Card>
       </section>
     </AppShell>
@@ -58,6 +64,26 @@ export default function DashboardPage() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return <Card><p className={`text-3xl font-bold ${tone ?? "text-ink"}`}>{value}</p><p className="mt-1 text-sm font-medium text-slate-500">{label}</p></Card>;
+}
+
+function ProjectFilter({ data, selectedProjectId, onChange }: { data: AppData; selectedProjectId: string; onChange: (projectId: string) => void }) {
+  const projects = [...data.projects].sort((a, b) => a.full_name.localeCompare(b.full_name, "is", { sensitivity: "base", numeric: true }));
+
+  return (
+    <Card>
+      <label className="grid gap-1 text-sm font-semibold text-slate-700 sm:max-w-md">
+        Filtera eftir verkefni
+        <select
+          value={selectedProjectId}
+          onChange={(event) => onChange(event.target.value)}
+          className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+        >
+          <option value="">Öll verkefni</option>
+          {projects.map((project) => <option key={project.id} value={project.id}>{project.full_name}</option>)}
+        </select>
+      </label>
+    </Card>
+  );
 }
 
 function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[]; data: AppData; showAssignee?: boolean }) {
