@@ -1,12 +1,13 @@
 "use client";
 
-import { use } from "react";
-import { Plus } from "lucide-react";
+import { use, useState } from "react";
+import { Pencil, Plus, Save } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { UnitTaskForm } from "@/components/forms";
 import { TaskTable } from "@/components/task-table";
-import { Card, EmptyState, PageHeader, ProgressBar } from "@/components/ui";
+import { Button, Card, EmptyState, PageHeader, ProgressBar } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
+import type { Unit } from "@/lib/types";
 import { summarizeTasks, tasksFor } from "@/lib/utils";
 
 export default function UnitPage({ params }: { params: Promise<{ projectId: string; locationId: string; unitId: string }> }) {
@@ -63,13 +64,58 @@ export default function UnitPage({ params }: { params: Promise<{ projectId: stri
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
         <TaskTable tasks={tasks} data={data} />
-        <Card className="xl:sticky xl:top-20 xl:self-start">
-          <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
-            <Plus className="h-4 w-4" /> Nýtt atriði
-          </h2>
-          <UnitTaskForm projectId={project.id} locationId={location.id} unitId={unit.id} />
-        </Card>
+        <div className="grid gap-4 xl:sticky xl:top-20 xl:self-start">
+          <Card>
+            <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
+              <Pencil className="h-4 w-4" /> Breyta heiti
+            </h2>
+            <UnitRenameForm unit={unit} />
+          </Card>
+          <Card>
+            <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
+              <Plus className="h-4 w-4" /> Nýtt atriði
+            </h2>
+            <UnitTaskForm projectId={project.id} locationId={location.id} unitId={unit.id} />
+          </Card>
+        </div>
       </div>
     </AppShell>
+  );
+}
+
+function UnitRenameForm({ unit }: { unit: Unit }) {
+  const { updateUnit } = useAppData();
+  const [name, setName] = useState(unit.name);
+  const [message, setMessage] = useState("");
+  const trimmedName = name.trim();
+  const canSave = trimmedName.length > 0 && trimmedName !== unit.name;
+
+  return (
+    <form
+      className="grid gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!canSave) return;
+        updateUnit(unit.id, { name: trimmedName });
+        setMessage("Heiti vistað.");
+      }}
+    >
+      <label className="grid gap-1 text-sm font-semibold text-slate-700">
+        Heiti íbúðar / rýmis
+        <input
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setMessage("");
+          }}
+          className="touch-target rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+          required
+        />
+      </label>
+      <Button disabled={!canSave}>
+        <Save className="h-4 w-4" /> Vista heiti
+      </Button>
+      {message ? <p className="text-sm font-semibold text-emerald-700">{message}</p> : null}
+    </form>
   );
 }

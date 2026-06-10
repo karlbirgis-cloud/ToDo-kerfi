@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
-import type { AppData, Profile, Task, TaskStatus, UnitType } from "./types";
+import type { AppData, Profile, Task, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
 
 type NewProjectInput = { project_number: string; name: string };
@@ -21,6 +21,7 @@ type DataContextValue = {
   createLocation(input: NewLocationInput): string;
   createUnit(input: NewUnitInput): string;
   createUnitsBulk(input: NewUnitInput & { names: string[] }): string[];
+  updateUnit(unitId: string, patch: Partial<Pick<Unit, "name">>): void;
   createProfile(input: NewProfileInput): string;
   createTask(input: NewTaskInput): string;
   updateTask(taskId: string, patch: Partial<Task>): void;
@@ -217,6 +218,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           });
         });
         return ids;
+      },
+      updateUnit(unitId, patch) {
+        update((draft) => {
+          const unit = draft.units.find((item) => item.id === unitId);
+          if (!unit) return;
+
+          if (typeof patch.name === "string") {
+            const nextName = patch.name.trim();
+            if (nextName) unit.name = nextName;
+          }
+
+          unit.updated_at = todayIso();
+        });
       },
       createProfile(input) {
         const id = input.id ?? makeId("user");
