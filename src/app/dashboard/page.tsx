@@ -15,6 +15,8 @@ type SortDirection = "asc" | "desc";
 export default function DashboardPage() {
   const { data } = useAppData();
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [unitSearch, setUnitSearch] = useState("");
   const summary = summarizeTasks(data.tasks);
   const overdue = data.tasks.filter(isOverdue).length;
   const activeTasks = data.tasks
@@ -23,7 +25,12 @@ export default function DashboardPage() {
       const statusOrder = { in_progress: 0, open: 1, done: 2 };
       return statusOrder[a.status] - statusOrder[b.status] || b.created_at.localeCompare(a.created_at);
     });
-  const filteredActiveTasks = selectedProjectId ? activeTasks.filter((task) => task.project_id === selectedProjectId) : activeTasks;
+  const filteredActiveTasks = activeTasks.filter((task) => {
+    if (selectedProjectId && task.project_id !== selectedProjectId) return false;
+    if (selectedLocationId && task.location_id !== selectedLocationId) return false;
+    if (unitSearch.trim() && !taskMatchesUnitSearch(task, data, unitSearch)) return false;
+    return true;
+  });
 
   return (
     <AppShell>
@@ -36,7 +43,23 @@ export default function DashboardPage() {
       </section>
 
       <section className="mt-6">
-        <ProjectFilter data={data} selectedProjectId={selectedProjectId} onChange={setSelectedProjectId} />
+        <DashboardFilters
+          data={data}
+          selectedProjectId={selectedProjectId}
+          selectedLocationId={selectedLocationId}
+          unitSearch={unitSearch}
+          onProjectChange={(projectId) => {
+            setSelectedProjectId(projectId);
+            setSelectedLocationId("");
+          }}
+          onLocationChange={setSelectedLocationId}
+          onUnitSearchChange={setUnitSearch}
+          onClear={() => {
+            setSelectedProjectId("");
+            setSelectedLocationId("");
+            setUnitSearch("");
+          }}
+        />
       </section>
 
       <section className="mt-4">
@@ -66,24 +89,88 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
   return <Card><p className={`text-3xl font-bold ${tone ?? "text-ink"}`}>{value}</p><p className="mt-1 text-sm font-medium text-slate-500">{label}</p></Card>;
 }
 
-function ProjectFilter({ data, selectedProjectId, onChange }: { data: AppData; selectedProjectId: string; onChange: (projectId: string) => void }) {
+function DashboardFilters({
+  data,
+  selectedProjectId,
+  selectedLocationId,
+  unitSearch,
+  onProjectChange,
+  onLocationChange,
+  onUnitSearchChange,
+  onClear
+}: {
+  data: AppData;
+  selectedProjectId: string;
+  selectedLocationId: string;
+  unitSearch: string;
+  onProjectChange: (projectId: string) => void;
+  onLocationChange: (locationId: string) => void;
+  onUnitSearchChange: (query: string) => void;
+  onClear: () => void;
+}) {
   const projects = [...data.projects].sort((a, b) => a.full_name.localeCompare(b.full_name, "is", { sensitivity: "base", numeric: true }));
+  const locations = data.locations
+    .filter((location) => !selectedProjectId || location.project_id === selectedProjectId)
+    .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
+  const hasActiveFilters = Boolean(selectedProjectId || selectedLocationId || unitSearch.trim());
 
   return (
     <Card>
-      <label className="grid gap-1 text-sm font-semibold text-slate-700 sm:max-w-md">
-        Filtera eftir verkefni
-        <select
-          value={selectedProjectId}
-          onChange={(event) => onChange(event.target.value)}
-          className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Filtera eftir verkefni
+          <select
+            value={selectedProjectId}
+            onChange={(event) => onProjectChange(event.target.value)}
+            className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+          >
+            <option value="">Öll verkefni</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.full_name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Filtera eftir götuheiti
+          <select
+            value={selectedLocationId}
+            onChange={(event) => onLocationChange(event.target.value)}
+            className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+          >
+            <option value="">Allar götur</option>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Leita eftir íbúðarnúmeri
+          <input
+            value={unitSearch}
+            onChange={(event) => onUnitSearchChange(event.target.value)}
+            placeholder="T.d. 0105"
+            className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={!hasActiveFilters}
+          className="touch-target rounded-md border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <option value="">Öll verkefni</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.full_name}</option>)}
-        </select>
-      </label>
+          Hreinsa
+        </button>
+      </div>
     </Card>
   );
+}
+
+function taskMatchesUnitSearch(task: Task, data: AppData, query: string) {
+  const unit = data.units.find((item) => item.id === task.unit_id);
+  if (!unit) return false;
+
+  const normalizedQuery = query.trim().toLocaleLowerCase("is");
+  const normalizedUnitName = unit.name.toLocaleLowerCase("is");
+  const queryDigits = normalizedQuery.match(/\d+/g)?.join("") ?? "";
+  const unitDigits = unit.name.match(/\d+/g)?.join("") ?? "";
+
+  return normalizedUnitName.includes(normalizedQuery) || Boolean(queryDigits && unitDigits.includes(queryDigits));
 }
 
 function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[]; data: AppData; showAssignee?: boolean }) {
