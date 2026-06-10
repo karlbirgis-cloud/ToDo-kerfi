@@ -228,10 +228,19 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
 export function TaskEditControls({ taskId, currentStatus }: { taskId: string; currentStatus: TaskStatus }) {
   const { updateTaskStatus, deleteTask } = useAppData();
   const router = useRouter();
+
+  function handleDelete() {
+    const confirmed = window.confirm("Ertu viss um að þú viljir eyða þessu atriði? Þessi aðgerð verður ekki afturkölluð.");
+    if (!confirmed) return;
+
+    deleteTask(taskId);
+    router.push("/projects");
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
       <Select value={currentStatus} onChange={(event) => updateTaskStatus(taskId, event.target.value as TaskStatus)} name="status" label="Staða" options={statusLabels} />
-      <Button className="bg-red-700 hover:bg-red-800" onClick={() => { deleteTask(taskId); router.push("/projects"); }}><Trash2 className="h-4 w-4" /> Eyða</Button>
+      <Button className="bg-red-700 hover:bg-red-800" onClick={handleDelete}><Trash2 className="h-4 w-4" /> Eyða</Button>
     </div>
   );
 }
