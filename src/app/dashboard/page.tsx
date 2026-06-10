@@ -144,7 +144,7 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") router.push(`/tasks/${task.id}`);
                   }}
-                  className="cursor-pointer transition hover:bg-blue-50/55 focus:bg-blue-50 focus:outline-none"
+                  className={cn("cursor-pointer border-l-4 transition focus:outline-none", getDashboardStatusTone(task.status))}
                 >
                   <Td className="font-semibold text-ink">{row.project}</Td>
                   <Td>{row.location}</Td>
@@ -179,7 +179,7 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") router.push(`/tasks/${task.id}`);
               }}
-              className="rounded-md border border-slate-200 bg-white p-3 text-left shadow-sm"
+              className={cn("rounded-md border border-l-4 p-3 text-left shadow-sm", getDashboardStatusTone(task.status))}
             >
               <div className="flex flex-wrap gap-2">
                 <DashboardStatusSelect
@@ -216,7 +216,10 @@ function DashboardStatusSelect({ task, onChange }: { task: Task; onChange: (stat
       <select
         value={task.status}
         onChange={(event) => onChange(event.target.value as TaskStatus)}
-        className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition hover:border-blueprint focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+        className={cn(
+          "h-9 rounded-md border px-2 text-sm font-semibold outline-none transition focus:ring-2",
+          getDashboardStatusSelectTone(task.status)
+        )}
         aria-label={`Staða fyrir ${task.title}`}
       >
         {Object.entries(statusLabels).map(([value, label]) => (
@@ -225,6 +228,26 @@ function DashboardStatusSelect({ task, onChange }: { task: Task; onChange: (stat
       </select>
     </label>
   );
+}
+
+function getDashboardStatusTone(status: TaskStatus) {
+  const tones: Record<TaskStatus, string> = {
+    open: "border-l-blue-500 bg-blue-50/60 hover:bg-blue-100/70 focus:bg-blue-100/70",
+    in_progress: "border-l-amber-500 bg-amber-50/70 hover:bg-amber-100/75 focus:bg-amber-100/75",
+    done: "border-l-emerald-500 bg-emerald-50/60 hover:bg-emerald-100/70 focus:bg-emerald-100/70"
+  };
+
+  return tones[status];
+}
+
+function getDashboardStatusSelectTone(status: TaskStatus) {
+  const tones: Record<TaskStatus, string> = {
+    open: "border-blue-200 bg-blue-50 text-blue-900 hover:border-blue-400 focus:border-blue-500 focus:ring-blue-200",
+    in_progress: "border-amber-200 bg-amber-50 text-amber-950 hover:border-amber-400 focus:border-amber-500 focus:ring-amber-200",
+    done: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-400 focus:border-emerald-500 focus:ring-emerald-200"
+  };
+
+  return tones[status];
 }
 
 function AssigneeTaskGroups({ tasks, data }: { tasks: Task[]; data: AppData }) {
