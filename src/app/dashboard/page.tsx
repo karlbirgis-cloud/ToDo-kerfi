@@ -17,15 +17,16 @@ export default function DashboardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
+  const [showDone, setShowDone] = useState(false);
   const summary = summarizeTasks(data.tasks);
   const overdue = data.tasks.filter(isOverdue).length;
-  const activeTasks = data.tasks
-    .filter((task) => task.status === "open" || task.status === "in_progress")
+  const dashboardTasks = data.tasks
+    .filter((task) => showDone || task.status === "open" || task.status === "in_progress")
     .sort((a, b) => {
       const statusOrder = { in_progress: 0, open: 1, done: 2 };
       return statusOrder[a.status] - statusOrder[b.status] || b.created_at.localeCompare(a.created_at);
     });
-  const filteredActiveTasks = activeTasks.filter((task) => {
+  const filteredDashboardTasks = dashboardTasks.filter((task) => {
     if (selectedProjectId && task.project_id !== selectedProjectId) return false;
     if (selectedLocationId && task.location_id !== selectedLocationId) return false;
     if (unitSearch.trim() && !taskMatchesUnitSearch(task, data, unitSearch)) return false;
@@ -48,16 +49,19 @@ export default function DashboardPage() {
           selectedProjectId={selectedProjectId}
           selectedLocationId={selectedLocationId}
           unitSearch={unitSearch}
+          showDone={showDone}
           onProjectChange={(projectId) => {
             setSelectedProjectId(projectId);
             setSelectedLocationId("");
           }}
           onLocationChange={setSelectedLocationId}
           onUnitSearchChange={setUnitSearch}
+          onShowDoneChange={setShowDone}
           onClear={() => {
             setSelectedProjectId("");
             setSelectedLocationId("");
             setUnitSearch("");
+            setShowDone(false);
           }}
         />
       </section>
@@ -66,19 +70,19 @@ export default function DashboardPage() {
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
-            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín ókláruðu og virku atriði.</p>
+            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín atriði út frá völdum filterum.</p>
           </div>
-          <AssigneeTaskGroups tasks={filteredActiveTasks} data={data} />
+          <AssigneeTaskGroups tasks={filteredDashboardTasks} data={data} />
         </Card>
       </section>
 
       <section className="mt-6">
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
-            <h2 className="font-bold text-ink">Ókláruð og í vinnslu</h2>
-            <p className="mt-1 text-sm text-slate-600">{filteredActiveTasks.length} atriði sem þarf að fylgja eftir.</p>
+            <h2 className="font-bold text-ink">{showDone ? "Öll valin atriði" : "Ókláruð og í vinnslu"}</h2>
+            <p className="mt-1 text-sm text-slate-600">{filteredDashboardTasks.length} atriði út frá völdum filterum.</p>
           </div>
-          <DashboardTaskTable tasks={filteredActiveTasks} data={data} />
+          <DashboardTaskTable tasks={filteredDashboardTasks} data={data} />
         </Card>
       </section>
     </AppShell>
@@ -94,29 +98,33 @@ function DashboardFilters({
   selectedProjectId,
   selectedLocationId,
   unitSearch,
+  showDone,
   onProjectChange,
   onLocationChange,
   onUnitSearchChange,
+  onShowDoneChange,
   onClear
 }: {
   data: AppData;
   selectedProjectId: string;
   selectedLocationId: string;
   unitSearch: string;
+  showDone: boolean;
   onProjectChange: (projectId: string) => void;
   onLocationChange: (locationId: string) => void;
   onUnitSearchChange: (query: string) => void;
+  onShowDoneChange: (showDone: boolean) => void;
   onClear: () => void;
 }) {
   const projects = [...data.projects].sort((a, b) => a.full_name.localeCompare(b.full_name, "is", { sensitivity: "base", numeric: true }));
   const locations = data.locations
     .filter((location) => !selectedProjectId || location.project_id === selectedProjectId)
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
-  const hasActiveFilters = Boolean(selectedProjectId || selectedLocationId || unitSearch.trim());
+  const hasActiveFilters = Boolean(selectedProjectId || selectedLocationId || unitSearch.trim() || showDone);
 
   return (
     <Card>
-      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto] lg:items-end">
         <label className="grid gap-1 text-sm font-semibold text-slate-700">
           Filtera eftir verkefni
           <select
@@ -147,6 +155,15 @@ function DashboardFilters({
             placeholder="T.d. 0105"
             className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
           />
+        </label>
+        <label className="touch-target flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700">
+          <input
+            type="checkbox"
+            checked={showDone}
+            onChange={(event) => onShowDoneChange(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-blueprint focus:ring-blueprint/30"
+          />
+          Sýna lokið
         </label>
         <button
           type="button"
