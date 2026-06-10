@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, FolderKanban, HardHat, Home, LogOut, Menu, ShieldCheck, UserCheck } from "lucide-react";
+import { BarChart3, FileText, FolderKanban, HardHat, Home, LogOut, Menu, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
+  { href: "/reports", label: "Skýrslur", icon: FileText },
   { href: "/projects", label: "Verkefni", icon: FolderKanban },
   { href: "/my-tasks", label: "Mín atriði", icon: UserCheck },
   { href: "/admin", label: "Admin", icon: ShieldCheck }
@@ -19,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { session, user, isLoading, signOut } = useAuth();
   const isLogin = pathname === "/login";
-  const isWidePage = pathname.startsWith("/dashboard");
+  const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports");
 
   useEffect(() => {
     if (isLogin) return;
@@ -69,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className={cn("mx-auto px-4 py-5 sm:py-8", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden">
         {nav.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
