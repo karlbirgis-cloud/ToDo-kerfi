@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, Card, StatusBadge, UserPill } from "@/components/ui";
+import { PageHeader, Card, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
-import type { AppData, Task } from "@/lib/types";
+import type { AppData, Task, TaskStatus } from "@/lib/types";
 import { cn, isOverdue, summarizeTasks } from "@/lib/utils";
 
 type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "assignee" | "status";
@@ -88,6 +88,7 @@ function ProjectFilter({ data, selectedProjectId, onChange }: { data: AppData; s
 
 function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[]; data: AppData; showAssignee?: boolean }) {
   const router = useRouter();
+  const { updateTaskStatus } = useAppData();
   const [sortKey, setSortKey] = useState<DashboardSortKey>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -153,7 +154,12 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
                   <Td>{row.category}</Td>
                   <Td>{row.subcategory}</Td>
                   {showAssignee ? <Td><UserPill name={row.assignee} /></Td> : null}
-                  <Td><StatusBadge status={task.status} /></Td>
+                  <Td>
+                    <DashboardStatusSelect
+                      task={task}
+                      onChange={(status) => updateTaskStatus(task.id, status)}
+                    />
+                  </Td>
                 </tr>
               );
             })}
@@ -165,13 +171,21 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
         {sortedTasks.map((task) => {
           const row = getDashboardTaskRow(task, data);
           return (
-            <button
+            <div
               key={task.id}
+              role="link"
+              tabIndex={0}
               onClick={() => router.push(`/tasks/${task.id}`)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") router.push(`/tasks/${task.id}`);
+              }}
               className="rounded-md border border-slate-200 bg-white p-3 text-left shadow-sm"
             >
               <div className="flex flex-wrap gap-2">
-                <StatusBadge status={task.status} />
+                <DashboardStatusSelect
+                  task={task}
+                  onChange={(status) => updateTaskStatus(task.id, status)}
+                />
                 {showAssignee ? <UserPill name={row.assignee} /> : null}
               </div>
               <h3 className="mt-3 font-bold text-ink">{task.title}</h3>
@@ -183,11 +197,33 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
                 <Detail label="Flokkur" value={row.category} />
                 <Detail label="Undirflokkur" value={row.subcategory} />
               </dl>
-            </button>
+            </div>
           );
         })}
       </div>
     </>
+  );
+}
+
+function DashboardStatusSelect({ task, onChange }: { task: Task; onChange: (status: TaskStatus) => void }) {
+  return (
+    <label
+      className="inline-grid gap-1 text-xs font-semibold text-slate-600"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <span className="sr-only">Staða</span>
+      <select
+        value={task.status}
+        onChange={(event) => onChange(event.target.value as TaskStatus)}
+        className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none transition hover:border-blueprint focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+        aria-label={`Staða fyrir ${task.title}`}
+      >
+        {Object.entries(statusLabels).map(([value, label]) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
