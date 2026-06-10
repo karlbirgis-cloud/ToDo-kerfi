@@ -70,20 +70,33 @@ const bryggjuhverfiLocations = [
   }
 ];
 
-const locations: Location[] = bryggjuhverfiLocations.map((location, index) => ({
+const vorbrautLocations = [
+  {
+    id: "location_vorbraut_16",
+    name: "Vorbraut 16",
+    units: ["0101", "0102", "0103", "0104", "0201", "0202", "0203", "0204", "0301", "0302", "0303", "0304", "0401", "0402"]
+  }
+];
+
+const projectLocationGroups = [
+  { projectId: "project_1", locations: bryggjuhverfiLocations },
+  { projectId: "project_vorbraut", locations: vorbrautLocations }
+];
+
+const locations: Location[] = projectLocationGroups.flatMap((group) => group.locations.map((location, index) => ({
   id: location.id,
-  project_id: "project_1",
+  project_id: group.projectId,
   name: location.name,
   description: "",
   sort_order: index + 1,
   created_at: now,
   updated_at: now
-}));
+})));
 
-const units: Unit[] = bryggjuhverfiLocations.flatMap((location) =>
+const units: Unit[] = projectLocationGroups.flatMap((group) => group.locations.flatMap((location) =>
   location.units.map((unitNumber, index) => ({
     id: `unit_${location.id.replace("location_", "")}_${unitNumber}`,
-    project_id: "project_1",
+    project_id: group.projectId,
     location_id: location.id,
     name: `Íbúð ${unitNumber}`,
     unit_type: "apartment",
@@ -92,7 +105,7 @@ const units: Unit[] = bryggjuhverfiLocations.flatMap((location) =>
     created_at: now,
     updated_at: now
   }))
-);
+));
 
 export const initialData: AppData = {
   companies: [{ id: "company_1", name: "Bryggjuhverfi", created_at: now }],
@@ -102,7 +115,8 @@ export const initialData: AppData = {
     { id: "user_worker", name: "Starfsmaður", email: "starfsmadur@bryggjuhverfi.is", phone: "", work_scope: "Almenn verk", employer: "Bryggjuhverfi", role: "worker", company_id: "company_1", created_at: now, updated_at: now }
   ],
   projects: [
-    { id: "project_1", company_id: "company_1", project_number: "010", name: "Bryggjuhverfi", full_name: "010 - Bryggjuhverfi", status: "active", created_at: now, updated_at: now }
+    { id: "project_1", company_id: "company_1", project_number: "010", name: "Bryggjuhverfi", full_name: "010 - Bryggjuhverfi", status: "active", created_at: now, updated_at: now },
+    { id: "project_vorbraut", company_id: "company_1", project_number: "020", name: "Vorbraut", full_name: "020 - Vorbraut", status: "active", created_at: now, updated_at: now }
   ],
   locations,
   units,
