@@ -8,16 +8,7 @@ import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus } from "@/lib/types";
 import { cn, formatDate, summarizeTasks } from "@/lib/utils";
 
-type ReportScope = "assignee" | "unit" | "location" | "project" | "all";
 type StatusFilter = "active" | "all" | TaskStatus;
-
-const reportScopeLabels: Record<ReportScope, string> = {
-  assignee: "Ábyrgðaraðili",
-  unit: "Íbúð / rými",
-  location: "Götuheiti",
-  project: "Verkefni",
-  all: "Allt kerfið"
-};
 
 const statusFilterLabels: Record<StatusFilter, string> = {
   active: "Ólokið og í vinnslu",
@@ -29,20 +20,29 @@ const statusFilterLabels: Record<StatusFilter, string> = {
 
 export default function ReportsPage() {
   const { data } = useAppData();
-  const [scope, setScope] = useState<ReportScope>("assignee");
-  const [scopeId, setScopeId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [unitSearch, setUnitSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [includeImages, setIncludeImages] = useState(true);
   const [includeComments, setIncludeComments] = useState(true);
 
-  const scopeOptions = useMemo(() => getScopeOptions(data, scope), [data, scope]);
-  const selectedScopeId = scope === "all" ? "" : scopeId || scopeOptions[0]?.id || "";
+  const projectOptions = useMemo(() => getProjectOptions(data), [data]);
+  const locationOptions = useMemo(() => getLocationOptions(data, selectedProjectId), [data, selectedProjectId]);
+  const assigneeOptions = useMemo(() => getAssigneeOptions(data), [data]);
   const tasks = useMemo(
-    () => getReportTasks(data, scope, selectedScopeId, statusFilter),
-    [data, scope, selectedScopeId, statusFilter]
+    () => getReportTasks(data, {
+      projectId: selectedProjectId,
+      locationId: selectedLocationId,
+      assigneeId: selectedAssigneeId,
+      unitSearch,
+      statusFilter
+    }),
+    [data, selectedAssigneeId, selectedLocationId, selectedProjectId, statusFilter, unitSearch]
   );
   const summary = summarizeTasks(tasks);
-  const reportTitle = getReportTitle(data, scope, selectedScopeId);
+  const reportTitle = getReportTitle(data, selectedProjectId, selectedLocationId, selectedAssigneeId, unitSearch);
   const reportSubtitle = `${statusFilterLabels[statusFilter]} · ${tasks.length} atriði`;
 
   return (
@@ -50,36 +50,55 @@ export default function ReportsPage() {
       <div className="no-print">
         <PageHeader title="Skýrslur" kicker="PDF yfirlit" />
         <Card>
-          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto] lg:items-end">
+          <div className="grid gap-3 xl:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] xl:items-end">
             <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Skýrsla eftir
+              Verkefni
               <select
-                value={scope}
+                value={selectedProjectId}
                 onChange={(event) => {
-                  const nextScope = event.target.value as ReportScope;
-                  setScope(nextScope);
-                  setScopeId("");
+                  setSelectedProjectId(event.target.value);
+                  setSelectedLocationId("");
                 }}
                 className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
               >
-                {Object.entries(reportScopeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                <option value="">Öll verkefni</option>
+                {projectOptions.map((project) => <option key={project.id} value={project.id}>{project.label}</option>)}
               </select>
             </label>
 
-            {scope !== "all" ? (
-              <label className="grid gap-1 text-sm font-semibold text-slate-700">
-                Velja {reportScopeLabels[scope].toLocaleLowerCase("is")}
-                <select
-                  value={selectedScopeId}
-                  onChange={(event) => setScopeId(event.target.value)}
-                  className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-                >
-                  {scopeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="hidden lg:block" />
-            )}
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Götuheiti
+              <select
+                value={selectedLocationId}
+                onChange={(event) => setSelectedLocationId(event.target.value)}
+                className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              >
+                <option value="">Allar götur</option>
+                {locationOptions.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Ábyrgðaraðili
+              <select
+                value={selectedAssigneeId}
+                onChange={(event) => setSelectedAssigneeId(event.target.value)}
+                className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              >
+                <option value="">Allir ábyrgðaraðilar</option>
+                {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.label}</option>)}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Íbúð / rými
+              <input
+                value={unitSearch}
+                onChange={(event) => setUnitSearch(event.target.value)}
+                placeholder="T.d. 0105"
+                className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              />
+            </label>
 
             <label className="grid gap-1 text-sm font-semibold text-slate-700">
               Staða
@@ -252,52 +271,51 @@ function ReportDetail({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getScopeOptions(data: AppData, scope: ReportScope) {
-  if (scope === "assignee") {
-    return [
-      { id: "unassigned", label: "Óúthlutað" },
-      ...data.profiles
-      .map((profile) => ({ id: profile.id, label: profile.name }))
-      .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base" }))
-    ];
-  }
-
-  if (scope === "unit") {
-    return data.units
-      .map((unit) => {
-        const location = data.locations.find((item) => item.id === unit.location_id);
-        return { id: unit.id, label: `${unit.name} · ${location?.name ?? "-"}` };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base", numeric: true }));
-  }
-
-  if (scope === "location") {
-    return data.locations
-      .map((location) => {
-        const project = data.projects.find((item) => item.id === location.project_id);
-        return { id: location.id, label: `${location.name} · ${project?.full_name ?? "-"}` };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base", numeric: true }));
-  }
-
-  if (scope === "project") {
-    return data.projects
-      .map((project) => ({ id: project.id, label: project.full_name }))
-      .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base", numeric: true }));
-  }
-
-  return [];
+function getProjectOptions(data: AppData) {
+  return data.projects
+    .map((project) => ({ id: project.id, label: project.full_name }))
+    .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base", numeric: true }));
 }
 
-function getReportTasks(data: AppData, scope: ReportScope, scopeId: string, statusFilter: StatusFilter) {
+function getLocationOptions(data: AppData, projectId: string) {
+  return data.locations
+    .filter((location) => !projectId || location.project_id === projectId)
+    .map((location) => {
+      const project = data.projects.find((item) => item.id === location.project_id);
+      return { id: location.id, label: projectId ? location.name : `${location.name} · ${project?.full_name ?? "-"}` };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base", numeric: true }));
+}
+
+function getAssigneeOptions(data: AppData) {
+  return [
+    { id: "unassigned", label: "Óúthlutað" },
+    ...data.profiles
+      .map((profile) => ({ id: profile.id, label: profile.name }))
+      .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base" }))
+  ];
+}
+
+function getReportTasks(
+  data: AppData,
+  filters: {
+    projectId: string;
+    locationId: string;
+    assigneeId: string;
+    unitSearch: string;
+    statusFilter: StatusFilter;
+  }
+) {
   return data.tasks
     .filter((task) => {
+      const { projectId, locationId, assigneeId, unitSearch, statusFilter } = filters;
       if (statusFilter === "active" && task.status === "done") return false;
       if (statusFilter !== "active" && statusFilter !== "all" && task.status !== statusFilter) return false;
-      if (scope === "assignee") return scopeId === "unassigned" ? !task.assigned_to_user_id : task.assigned_to_user_id === scopeId;
-      if (scope === "unit") return task.unit_id === scopeId;
-      if (scope === "location") return task.location_id === scopeId;
-      if (scope === "project") return task.project_id === scopeId;
+      if (projectId && task.project_id !== projectId) return false;
+      if (locationId && task.location_id !== locationId) return false;
+      if (assigneeId === "unassigned" && task.assigned_to_user_id) return false;
+      if (assigneeId && assigneeId !== "unassigned" && task.assigned_to_user_id !== assigneeId) return false;
+      if (unitSearch.trim() && !taskMatchesUnitSearch(task, data, unitSearch)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -306,10 +324,15 @@ function getReportTasks(data: AppData, scope: ReportScope, scopeId: string, stat
     });
 }
 
-function getReportTitle(data: AppData, scope: ReportScope, scopeId: string) {
-  if (scope === "all") return "Öll atriði";
-  const option = getScopeOptions(data, scope).find((item) => item.id === scopeId);
-  return `${reportScopeLabels[scope]}: ${option?.label ?? "-"}`;
+function getReportTitle(data: AppData, projectId: string, locationId: string, assigneeId: string, unitSearch: string) {
+  const parts = [
+    data.projects.find((project) => project.id === projectId)?.full_name,
+    data.locations.find((location) => location.id === locationId)?.name,
+    assigneeId === "unassigned" ? "Óúthlutað" : data.profiles.find((profile) => profile.id === assigneeId)?.name,
+    unitSearch.trim() ? `Íbúð/rými: ${unitSearch.trim()}` : undefined
+  ].filter(Boolean);
+
+  return parts.length > 0 ? `Skýrsla: ${parts.join(" · ")}` : "Skýrsla: Öll atriði";
 }
 
 function getTaskReportRow(task: Task, data: AppData) {
@@ -321,6 +344,18 @@ function getTaskReportRow(task: Task, data: AppData) {
     subcategory: data.subcategories.find((subcategory) => subcategory.id === task.subcategory_id)?.name ?? "-",
     assignee: data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name
   };
+}
+
+function taskMatchesUnitSearch(task: Task, data: AppData, query: string) {
+  const unit = data.units.find((item) => item.id === task.unit_id);
+  if (!unit) return false;
+
+  const normalizedQuery = query.trim().toLocaleLowerCase("is");
+  const normalizedUnitName = unit.name.toLocaleLowerCase("is");
+  const queryDigits = normalizedQuery.match(/\d+/g)?.join("") ?? "";
+  const unitDigits = unit.name.match(/\d+/g)?.join("") ?? "";
+
+  return normalizedUnitName.includes(normalizedQuery) || Boolean(queryDigits && unitDigits.includes(queryDigits));
 }
 
 function imagesForTask(data: AppData, taskId: string) {
