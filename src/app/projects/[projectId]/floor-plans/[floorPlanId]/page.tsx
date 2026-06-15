@@ -138,7 +138,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
               Lýsing
               <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
             </label>
-            <SelectField label="Úthlutun á" value={assignedToUserId} onChange={setAssignedToUserId} options={[{ value: "", label: "Óúthlutað" }, ...data.profiles.map((profile) => ({ value: profile.id, label: profile.name }))]} />
+            <SelectField label="Úthlutun á" value={assignedToUserId} onChange={setAssignedToUserId} options={[{ value: "", label: "Óúthlutað" }, ...data.profiles.map((profile) => ({ value: profile.id, label: profile.name }))]} required={false} />
             <SelectField label="Forgangur" value={priority} onChange={(value) => setPriority(value as TaskPriority)} options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))} />
             <Button disabled={!canCreate}><Save className="h-4 w-4" /> Stofna atriði</Button>
           </form>
@@ -166,11 +166,11 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   );
 }
 
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
+function SelectField({ label, value, onChange, options, required = true }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; required?: boolean }) {
   return (
     <label className="grid gap-1 text-sm font-semibold text-slate-700">
       {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" required>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" required={required}>
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
     </label>
