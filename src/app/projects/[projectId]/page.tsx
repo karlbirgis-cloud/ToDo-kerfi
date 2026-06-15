@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
-import { FileImage, MapPinned, Plus, Upload } from "lucide-react";
+import { FileImage, FileText, MapPinned, Plus, Upload } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { LocationCard } from "@/components/entity-cards";
 import { LocationForm } from "@/components/forms";
@@ -76,10 +76,10 @@ function FloorPlanPanel({ project, data }: { project: Project; data: AppData }) 
           />
         </label>
         <label className="grid gap-1 text-sm font-semibold text-slate-700">
-          Mynd / teikning
+          Grunnmynd / teikning
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             className="rounded-md border border-slate-300 bg-white p-2 text-sm"
             required
@@ -91,7 +91,10 @@ function FloorPlanPanel({ project, data }: { project: Project; data: AppData }) 
       <div className="mt-5 grid gap-2">
         {floorPlans.map((plan) => (
           <Link key={plan.id} href={`/projects/${project.id}/floor-plans/${plan.id}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-400 hover:bg-white">
-            <span className="flex items-center gap-2 font-bold text-ink"><FileImage className="h-4 w-4 text-blueprint" /> {plan.name}</span>
+            <span className="flex items-center gap-2 font-bold text-ink">
+              {isPdfFloorPlan(plan) ? <FileText className="h-4 w-4 text-red-700" /> : <FileImage className="h-4 w-4 text-blueprint" />}
+              {plan.name}
+            </span>
             <span className="text-xs font-semibold text-slate-500">{formatDate(plan.created_at)}</span>
           </Link>
         ))}
@@ -99,4 +102,8 @@ function FloorPlanPanel({ project, data }: { project: Project; data: AppData }) 
       </div>
     </Card>
   );
+}
+
+function isPdfFloorPlan(plan: { image_url: string; mime_type?: string; storage_path: string }) {
+  return plan.mime_type === "application/pdf" || plan.storage_path.toLowerCase().endsWith(".pdf") || plan.image_url.toLowerCase().includes(".pdf");
 }

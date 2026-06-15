@@ -416,13 +416,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           });
           if (!response.ok) throw new Error("Floor plan upload failed.");
 
-          const payload = (await response.json()) as { image_url: string; storage_path: string };
+          const payload = (await response.json()) as { image_url: string; mime_type?: string; storage_path: string };
           update((draft) => {
             draft.floor_plans.push({
               id,
               project_id: projectId,
               name: trimmedName,
               image_url: payload.image_url,
+              mime_type: payload.mime_type ?? file.type,
               storage_path: payload.storage_path,
               uploaded_by_user_id: currentUserId,
               created_at: todayIso(),
@@ -438,6 +439,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             project_id: projectId,
             name: trimmedName,
             image_url: URL.createObjectURL(file),
+            mime_type: file.type,
             storage_path: `local/floor-plans/${projectId}/${file.name}`,
             uploaded_by_user_id: currentUserId,
             created_at: todayIso(),

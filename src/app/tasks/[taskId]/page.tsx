@@ -7,8 +7,8 @@ import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { TaskEditControls } from "@/components/forms";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
-import { formatDate } from "@/lib/utils";
-import type { AppData, Task } from "@/lib/types";
+import { cn, formatDate } from "@/lib/utils";
+import type { AppData, FloorPlan, Task } from "@/lib/types";
 
 export default function TaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = use(params);
@@ -31,6 +31,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const history = data.task_status_history.filter((item) => item.task_id === task.id);
   const planMarker = data.task_plan_markers.find((item) => item.task_id === task.id);
   const floorPlan = planMarker ? data.floor_plans.find((item) => item.id === planMarker.floor_plan_id) : undefined;
+  const isPdf = floorPlan ? isPdfFloorPlan(floorPlan) : false;
   return (
     <AppShell>
       <Breadcrumbs items={[
@@ -82,8 +83,16 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 </Link>
               </div>
               <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="group block overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-2">
-                <div className="relative mx-auto w-fit max-w-full">
-                  <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[420px] max-w-full object-contain" />
+                <div className={cn("relative mx-auto max-w-full", isPdf ? "h-[420px] w-full" : "w-fit")}>
+                  {isPdf ? (
+                    <iframe
+                      src={`${floorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+                      title={floorPlan.name}
+                      className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+                    />
+                  ) : (
+                    <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[420px] max-w-full object-contain" />
+                  )}
                   <span
                     className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200 transition group-hover:scale-110"
                     style={{ left: `${planMarker.x_percent}%`, top: `${planMarker.y_percent}%` }}
@@ -190,6 +199,10 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
 
 function Info({ label, value }: { label: string; value?: string }) {
   return <div className="border-b border-slate-100 py-2 text-sm"><p className="text-slate-500">{label}</p><p className="font-semibold text-ink">{value || "-"}</p></div>;
+}
+
+function isPdfFloorPlan(plan: FloorPlan) {
+  return plan.mime_type === "application/pdf" || plan.storage_path.toLowerCase().endsWith(".pdf") || plan.image_url.toLowerCase().includes(".pdf");
 }
 
 function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: Task; onSave: (patch: Partial<Task>) => void; onCancel: () => void }) {

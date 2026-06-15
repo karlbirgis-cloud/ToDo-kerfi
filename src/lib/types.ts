@@ -133,6 +133,7 @@ export type FloorPlan = {
   project_id: string;
   name: string;
   image_url: string;
+  mime_type?: string;
   storage_path: string;
   uploaded_by_user_id: string;
   created_at: string;

@@ -33,6 +33,9 @@ export async function POST(request: Request) {
 
   if (!projectId) return NextResponse.json({ error: "Missing projectId." }, { status: 400 });
   if (!(file instanceof File)) return NextResponse.json({ error: "Missing file." }, { status: 400 });
+  const mimeType = file.type || "application/octet-stream";
+  const isSupportedFile = mimeType.startsWith("image/") || mimeType === "application/pdf";
+  if (!isSupportedFile) return NextResponse.json({ error: "Only images and PDF files are supported." }, { status: 400 });
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `app-state/floor-plans/${projectId}/${crypto.randomUUID()}-${safeName}`;
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
   const { error } = await supabaseAdmin.storage
     .from(env.storageBucket)
     .upload(storagePath, bytes, {
-      contentType: file.type || "application/octet-stream",
+      contentType: mimeType,
       upsert: false
     });
 
@@ -49,6 +52,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     storage_path: storagePath,
-    image_url: `/api/floor-plan-images?path=${encodeURIComponent(storagePath)}`
+    image_url: `/api/floor-plan-images?path=${encodeURIComponent(storagePath)}`,
+    mime_type: mimeType
   });
 }

@@ -7,7 +7,7 @@ import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { Button, Card, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { priorityLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
-import type { AppData, Category, Subcategory, TaskPriority } from "@/lib/types";
+import type { AppData, Category, FloorPlan, Subcategory, TaskPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function FloorPlanPage({ params }: { params: Promise<{ projectId: string; floorPlanId: string }> }) {
@@ -33,6 +33,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   const [assignedToUserId, setAssignedToUserId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const existingMarkers = data.task_plan_markers.filter((item) => item.floor_plan_id === floorPlanId);
+  const isPdf = floorPlan ? isPdfFloorPlan(floorPlan) : false;
 
   if (!project || !floorPlan) {
     return (
@@ -57,7 +58,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
           </div>
           <div className="overflow-auto bg-slate-100 p-2">
             <div
-              className="relative mx-auto w-fit max-w-full cursor-crosshair"
+              className={cn("relative mx-auto cursor-crosshair", isPdf ? "h-[78vh] min-h-[520px] w-full max-w-[1100px]" : "w-fit max-w-full")}
               onClick={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
                 const x = ((event.clientX - rect.left) / rect.width) * 100;
@@ -65,7 +66,15 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
                 setMarker({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
               }}
             >
-              <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[78vh] max-w-full object-contain" />
+              {isPdf ? (
+                <iframe
+                  src={`${floorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+                  title={floorPlan.name}
+                  className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+                />
+              ) : (
+                <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[78vh] max-w-full object-contain" />
+              )}
               {existingMarkers.map((item) => {
                 const task = data.tasks.find((taskItem) => taskItem.id === item.task_id);
                 if (!task) return null;
@@ -192,4 +201,8 @@ function getMarkerTone(status: string) {
   if (status === "done") return "bg-emerald-500";
   if (status === "in_progress") return "bg-amber-500";
   return "bg-blue-500";
+}
+
+function isPdfFloorPlan(plan: FloorPlan) {
+  return plan.mime_type === "application/pdf" || plan.storage_path.toLowerCase().endsWith(".pdf") || plan.image_url.toLowerCase().includes(".pdf");
 }
