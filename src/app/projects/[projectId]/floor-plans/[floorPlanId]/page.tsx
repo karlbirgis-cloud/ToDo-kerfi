@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
-import { MapPin, Plus, Save } from "lucide-react";
+import { MapPin, Plus, RotateCcw, Save, ZoomIn, ZoomOut } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { Button, Card, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { priorityLabels } from "@/lib/labels";
@@ -32,6 +32,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   const [description, setDescription] = useState("");
   const [assignedToUserId, setAssignedToUserId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [zoom, setZoom] = useState(1);
   const existingMarkers = data.task_plan_markers.filter((item) => item.floor_plan_id === floorPlanId);
   const isPdf = floorPlan ? isPdfFloorPlan(floorPlan) : false;
 
@@ -44,21 +45,104 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   }
 
   const canCreate = Boolean(marker && effectiveLocationId && effectiveUnitId && effectiveCategoryId && effectiveSubcategoryId && title.trim());
+  const zoomLabel = `${Math.round(zoom * 100)}%`;
 
   return (
     <AppShell>
       <Breadcrumbs items={[{ label: "Verkefni", href: "/projects" }, { label: project.full_name, href: `/projects/${project.id}` }, { label: floorPlan.name }]} />
       <PageHeader title={floorPlan.name} kicker="Grunnmynd" />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
-        <Card className="p-0">
-          <div className="border-b border-slate-100 p-4">
-            <h2 className="flex items-center gap-2 font-bold text-ink"><MapPin className="h-4 w-4" /> Smelltu á grunnmyndina til að setja punkt</h2>
-            <p className="mt-1 text-sm text-slate-600">Punkturinn verður tengdur við nýtt atriði sem þú stofnar í forminu hægra megin.</p>
+      <div className="grid gap-4">
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 font-bold text-ink"><Plus className="h-4 w-4" /> Stofna atriði á punkti</h2>
+          <form
+            className="grid gap-3 lg:grid-cols-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!canCreate || !marker) return;
+              const taskId = createTask({
+                project_id: project.id,
+                location_id: effectiveLocationId,
+                unit_id: effectiveUnitId,
+                category_id: effectiveCategoryId,
+                subcategory_id: effectiveSubcategoryId,
+                title: title.trim(),
+                description: description.trim(),
+                assigned_to_user_id: assignedToUserId || undefined,
+                priority
+              });
+              createTaskPlanMarker({ task_id: taskId, floor_plan_id: floorPlan.id, x_percent: marker.x, y_percent: marker.y });
+              setMarker(null);
+              setTitle("");
+              setDescription("");
+            }}
+          >
+            <p className={cn("rounded-md p-3 text-sm font-semibold lg:col-span-4", marker ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
+              {marker ? `Punktur valinn: ${marker.x.toFixed(1)}% / ${marker.y.toFixed(1)}%` : "Veldu punkt á grunnmyndinni fyrst."}
+            </p>
+            <SelectField label="Gata" value={effectiveLocationId} onChange={(value) => { setSelectedLocationId(value); setSelectedUnitId(""); setSelectedCategoryId(""); setSelectedSubcategoryId(""); }} options={projectLocations.map((location) => ({ value: location.id, label: location.name }))} />
+            <SelectField label="Íbúð / rými" value={effectiveUnitId} onChange={(value) => { setSelectedUnitId(value); setSelectedCategoryId(""); setSelectedSubcategoryId(""); }} options={projectUnits.map((unit) => ({ value: unit.id, label: unit.name }))} />
+            <SelectField label="Flokkur" value={effectiveCategoryId} onChange={(value) => { setSelectedCategoryId(value); setSelectedSubcategoryId(""); }} options={categories.map((category) => ({ value: category.id, label: category.name }))} />
+            <SelectField label="Undirflokkur" value={effectiveSubcategoryId} onChange={setSelectedSubcategoryId} options={subcategories.map((subcategory) => ({ value: subcategory.id, label: subcategory.name }))} />
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Titill
+              <input value={title} onChange={(event) => setTitle(event.target.value)} className="touch-target rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" required />
+            </label>
+            <label className="grid gap-1 text-sm font-semibold text-slate-700 lg:col-span-2">
+              Lýsing
+              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
+            </label>
+            <SelectField label="Úthlutun á" value={assignedToUserId} onChange={setAssignedToUserId} options={[{ value: "", label: "Óúthlutað" }, ...data.profiles.map((profile) => ({ value: profile.id, label: profile.name }))]} required={false} />
+            <SelectField label="Forgangur" value={priority} onChange={(value) => setPriority(value as TaskPriority)} options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))} />
+            <div className="flex items-end lg:col-span-2">
+              <Button className="w-full" disabled={!canCreate}><Save className="h-4 w-4" /> Stofna atriði</Button>
+            </div>
+          </form>
+
+          <div className="mt-5 grid gap-2">
+            <h3 className="font-bold text-ink">Punktar á grunnmynd</h3>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {existingMarkers.map((item) => {
+                const task = data.tasks.find((taskItem) => taskItem.id === item.task_id);
+                if (!task) return null;
+                return (
+                  <Link key={item.id} href={`/tasks/${task.id}`} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm transition hover:border-slate-400 hover:bg-white">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="font-bold text-ink">{task.title}</span>
+                      <StatusBadge status={task.status} />
+                    </div>
+                    <span className="text-slate-600">{item.x_percent.toFixed(1)}% / {item.y_percent.toFixed(1)}%</span>
+                  </Link>
+                );
+              })}
+            </div>
+            {existingMarkers.length === 0 ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Engir punktar eru komnir á þessa grunnmynd.</p> : null}
           </div>
-          <div className="overflow-auto bg-slate-100 p-2">
+        </Card>
+
+        <Card className="p-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+            <div>
+              <h2 className="flex items-center gap-2 font-bold text-ink"><MapPin className="h-4 w-4" /> Smelltu á grunnmyndina til að setja punkt</h2>
+              <p className="mt-1 text-sm text-slate-600">Notaðu zoom til að staðsetja punktinn nákvæmlega.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>
+                <ZoomOut className="h-4 w-4" /> Minnka
+              </Button>
+              <span className="min-w-16 text-center text-sm font-bold text-ink">{zoomLabel}</span>
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>
+                <ZoomIn className="h-4 w-4" /> Stækka
+              </Button>
+              <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={() => setZoom(1)}>
+                <RotateCcw className="h-4 w-4" /> 100%
+              </Button>
+            </div>
+          </div>
+          <div className="h-[calc(100vh-220px)] min-h-[620px] overflow-auto bg-slate-100 p-3">
             <div
-              className={cn("relative mx-auto cursor-crosshair", isPdf ? "h-[78vh] min-h-[520px] w-full max-w-[1100px]" : "w-fit max-w-full")}
+              className={cn("relative mx-auto cursor-crosshair", isPdf ? "min-h-[720px]" : "")}
+              style={{ width: `${zoom * 100}%`, height: isPdf ? `${Math.max(86, 86 * zoom)}vh` : undefined }}
               onClick={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
                 const x = ((event.clientX - rect.left) / rect.width) * 100;
@@ -73,7 +157,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
                   className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
                 />
               ) : (
-                <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[78vh] max-w-full object-contain" />
+                <img src={floorPlan.image_url} alt={floorPlan.name} className="block w-full max-w-none object-contain" />
               )}
               {existingMarkers.map((item) => {
                 const task = data.tasks.find((taskItem) => taskItem.id === item.task_id);
@@ -96,69 +180,6 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
                 />
               ) : null}
             </div>
-          </div>
-        </Card>
-
-        <Card className="xl:sticky xl:top-20 xl:self-start">
-          <h2 className="mb-4 flex items-center gap-2 font-bold text-ink"><Plus className="h-4 w-4" /> Stofna atriði á punkti</h2>
-          <form
-            className="grid gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!canCreate || !marker) return;
-              const taskId = createTask({
-                project_id: project.id,
-                location_id: effectiveLocationId,
-                unit_id: effectiveUnitId,
-                category_id: effectiveCategoryId,
-                subcategory_id: effectiveSubcategoryId,
-                title: title.trim(),
-                description: description.trim(),
-                assigned_to_user_id: assignedToUserId || undefined,
-                priority
-              });
-              createTaskPlanMarker({ task_id: taskId, floor_plan_id: floorPlan.id, x_percent: marker.x, y_percent: marker.y });
-              setMarker(null);
-              setTitle("");
-              setDescription("");
-            }}
-          >
-            <p className={cn("rounded-md p-3 text-sm font-semibold", marker ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
-              {marker ? `Punktur valinn: ${marker.x.toFixed(1)}% / ${marker.y.toFixed(1)}%` : "Veldu punkt á grunnmyndinni fyrst."}
-            </p>
-            <SelectField label="Gata" value={effectiveLocationId} onChange={(value) => { setSelectedLocationId(value); setSelectedUnitId(""); setSelectedCategoryId(""); setSelectedSubcategoryId(""); }} options={projectLocations.map((location) => ({ value: location.id, label: location.name }))} />
-            <SelectField label="Íbúð / rými" value={effectiveUnitId} onChange={(value) => { setSelectedUnitId(value); setSelectedCategoryId(""); setSelectedSubcategoryId(""); }} options={projectUnits.map((unit) => ({ value: unit.id, label: unit.name }))} />
-            <SelectField label="Flokkur" value={effectiveCategoryId} onChange={(value) => { setSelectedCategoryId(value); setSelectedSubcategoryId(""); }} options={categories.map((category) => ({ value: category.id, label: category.name }))} />
-            <SelectField label="Undirflokkur" value={effectiveSubcategoryId} onChange={setSelectedSubcategoryId} options={subcategories.map((subcategory) => ({ value: subcategory.id, label: subcategory.name }))} />
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Titill
-              <input value={title} onChange={(event) => setTitle(event.target.value)} className="touch-target rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" required />
-            </label>
-            <label className="grid gap-1 text-sm font-semibold text-slate-700">
-              Lýsing
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
-            </label>
-            <SelectField label="Úthlutun á" value={assignedToUserId} onChange={setAssignedToUserId} options={[{ value: "", label: "Óúthlutað" }, ...data.profiles.map((profile) => ({ value: profile.id, label: profile.name }))]} required={false} />
-            <SelectField label="Forgangur" value={priority} onChange={(value) => setPriority(value as TaskPriority)} options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))} />
-            <Button disabled={!canCreate}><Save className="h-4 w-4" /> Stofna atriði</Button>
-          </form>
-
-          <div className="mt-5 grid gap-2">
-            <h3 className="font-bold text-ink">Punktar á grunnmynd</h3>
-            {existingMarkers.map((item) => {
-              const task = data.tasks.find((taskItem) => taskItem.id === item.task_id);
-              if (!task) return null;
-              return (
-                <Link key={item.id} href={`/tasks/${task.id}`} className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm transition hover:border-slate-400 hover:bg-white">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="font-bold text-ink">{task.title}</span>
-                    <StatusBadge status={task.status} />
-                  </div>
-                  <span className="text-slate-600">{item.x_percent.toFixed(1)}% / {item.y_percent.toFixed(1)}%</span>
-                </Link>
-              );
-            })}
-            {existingMarkers.length === 0 ? <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Engir punktar eru komnir á þessa grunnmynd.</p> : null}
           </div>
         </Card>
       </div>
