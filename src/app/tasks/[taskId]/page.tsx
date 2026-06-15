@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { Camera, MessageSquare, Pencil, RotateCcw, Save, X } from "lucide-react";
+import { Camera, MessageSquare, Pencil, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { TaskEditControls } from "@/components/forms";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
@@ -11,10 +11,11 @@ import type { AppData, Task } from "@/lib/types";
 
 export default function TaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = use(params);
-  const { data, addComment, addTaskImages, reopenTask, updateTask } = useAppData();
+  const { data, addComment, addTaskImages, deleteTaskImage, reopenTask, updateTask } = useAppData();
   const [comment, setComment] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [deletingImageId, setDeletingImageId] = useState("");
   const task = data.tasks.find((item) => item.id === taskId);
   if (!task) return <AppShell><EmptyState title="Atriði fannst ekki" body="Atriðið gæti hafa verið eytt." /></AppShell>;
   const project = data.projects.find((item) => item.id === task.project_id);
@@ -92,9 +93,35 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 }}
               />
             </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {images.map((image) => <img key={image.id} src={image.image_url} alt="" className="h-48 w-full rounded-md object-cover" />)}
-            </div>
+            {images.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {images.map((image) => (
+                  <div key={image.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+                    <img src={image.image_url} alt="" className="h-48 w-full object-cover" />
+                    <button
+                      type="button"
+                      disabled={deletingImageId === image.id}
+                      onClick={async () => {
+                        const confirmed = window.confirm("Ertu viss um að þú viljir eyða þessari mynd?");
+                        if (!confirmed) return;
+
+                        setDeletingImageId(image.id);
+                        try {
+                          await deleteTaskImage(image.id);
+                        } finally {
+                          setDeletingImageId("");
+                        }
+                      }}
+                      className="touch-target flex w-full items-center justify-center gap-2 border-t border-slate-200 bg-red-50 px-3 text-sm font-bold text-red-800 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" /> {deletingImageId === image.id ? "Eyði..." : "Eyða mynd"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Engar myndir hafa verið skráðar á þetta atriði.</p>
+            )}
           </Card>
           <Card>
             <h2 className="mb-3 flex items-center gap-2 font-bold"><MessageSquare className="h-4 w-4" /> Athugasemdir</h2>

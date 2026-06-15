@@ -31,6 +31,7 @@ type DataContextValue = {
   deleteTask(taskId: string): void;
   addComment(taskId: string, comment: string): void;
   addTaskImages(taskId: string, files: FileList | File[]): Promise<void>;
+  deleteTaskImage(imageId: string): Promise<void>;
   resetDemoData(): void;
 };
 
@@ -372,6 +373,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               created_at: todayIso()
             });
           });
+        });
+      },
+      async deleteTaskImage(imageId) {
+        const image = data.task_images.find((item) => item.id === imageId);
+        if (!image) return;
+
+        if (persistenceMode === "cloud") {
+          const response = await fetch("/api/task-images", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ storagePath: image.storage_path })
+          });
+          if (!response.ok) throw new Error("Image delete failed.");
+        } else if (image.image_url.startsWith("blob:")) {
+          URL.revokeObjectURL(image.image_url);
+        }
+
+        update((draft) => {
+          draft.task_images = draft.task_images.filter((item) => item.id !== imageId);
         });
       },
       resetDemoData() {

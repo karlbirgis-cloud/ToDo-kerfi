@@ -59,3 +59,17 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ images });
 }
+
+export async function DELETE(request: Request) {
+  if (!supabaseAdmin) {
+    return NextResponse.json({ error: "Supabase service role environment variable is missing." }, { status: 500 });
+  }
+
+  const body = (await request.json()) as { storagePath?: string };
+  if (!body.storagePath) return NextResponse.json({ error: "Missing image path." }, { status: 400 });
+
+  const { error } = await supabaseAdmin.storage.from(env.storageBucket).remove([body.storagePath]);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
