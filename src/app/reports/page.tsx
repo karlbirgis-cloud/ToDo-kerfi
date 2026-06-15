@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus } from "@/lib/types";
-import { cn, formatDate, summarizeTasks } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type StatusFilter = "active" | "all" | TaskStatus;
 
@@ -41,7 +41,6 @@ export default function ReportsPage() {
     }),
     [data, selectedAssigneeId, selectedLocationId, selectedProjectId, statusFilter, unitSearch]
   );
-  const summary = summarizeTasks(tasks);
   const reportTitle = getReportTitle(data, selectedProjectId, selectedLocationId, selectedAssigneeId, unitSearch);
   const reportSubtitle = `${statusFilterLabels[statusFilter]} · ${tasks.length} atriði`;
 
@@ -141,7 +140,6 @@ export default function ReportsPage() {
 
       <section className="print-report mt-5 rounded-lg border border-slate-200 bg-white/95 p-5 shadow-soft print:mt-0">
         <ReportHeader title={reportTitle} subtitle={reportSubtitle} />
-        <SummaryGrid summary={summary} imageCount={tasks.reduce((count, task) => count + imagesForTask(data, task.id).length, 0)} />
 
         {tasks.length === 0 ? (
           <EmptyState title="Engin atriði í skýrslu" body="Breyttu vali eða stöðu til að sjá atriði í skýrslunni." />
@@ -174,27 +172,6 @@ function ReportHeader({ title, subtitle }: { title: string; subtitle: string }) 
       <div className="text-sm font-semibold text-slate-600">
         <p>Útbúin: {formatDate(new Date().toISOString())}</p>
       </div>
-    </div>
-  );
-}
-
-function SummaryGrid({ summary, imageCount }: { summary: ReturnType<typeof summarizeTasks>; imageCount: number }) {
-  return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-5">
-      <ReportMetric label="Samtals" value={summary.total} />
-      <ReportMetric label="Ólokið" value={summary.open} tone="text-blue-800" />
-      <ReportMetric label="Í vinnslu" value={summary.in_progress} tone="text-amber-800" />
-      <ReportMetric label="Lokið" value={summary.done} tone="text-emerald-800" />
-      <ReportMetric label="Myndir" value={imageCount} />
-    </div>
-  );
-}
-
-function ReportMetric({ label, value, tone }: { label: string; value: number; tone?: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <p className={cn("text-2xl font-bold text-ink", tone)}>{value}</p>
-      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
     </div>
   );
 }
