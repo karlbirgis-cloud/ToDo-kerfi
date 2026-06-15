@@ -216,7 +216,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
       {imagePreviews.length > 0 ? (
         <div className="grid grid-cols-3 gap-2">
           {imagePreviews.map((preview, index) => (
-            <img key={preview} src={preview} alt={`Mynd ${index + 1}`} className="aspect-square rounded-md border border-slate-200 object-cover" />
+            <img key={preview} src={preview} alt={`Mynd ${index + 1}`} className="aspect-square rounded-md border border-slate-200 bg-slate-100 object-contain" />
           ))}
         </div>
       ) : null}

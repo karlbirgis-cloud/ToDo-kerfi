@@ -236,7 +236,7 @@ function ReportTask({ task, data, includeImages, includeComments }: { task: Task
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {images.map((image) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={image.id} src={image.image_url} alt={`Mynd fyrir ${task.title}`} className="h-44 w-full rounded-md border border-slate-200 object-cover" />
+              <img key={image.id} src={image.image_url} alt={`Mynd fyrir ${task.title}`} className="h-44 w-full rounded-md border border-slate-200 bg-slate-100 object-contain" />
             ))}
           </div>
         </div>

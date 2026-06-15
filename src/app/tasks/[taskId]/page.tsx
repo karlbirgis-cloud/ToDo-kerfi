@@ -97,7 +97,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               <div className="grid gap-3 sm:grid-cols-2">
                 {images.map((image) => (
                   <div key={image.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
-                    <img src={image.image_url} alt="" className="h-48 w-full object-cover" />
+                    <img src={image.image_url} alt="" className="h-48 w-full bg-slate-100 object-contain" />
                     <button
                       type="button"
                       disabled={deletingImageId === image.id}
