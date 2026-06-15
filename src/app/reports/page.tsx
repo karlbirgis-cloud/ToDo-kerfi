@@ -195,13 +195,6 @@ function ReportTask({ task, data, includeImages, includeComments }: { task: Task
         </div>
       </div>
 
-      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-        <ReportDetail label="Flokkur" value={row.category} />
-        <ReportDetail label="Undirflokkur" value={row.subcategory} />
-        <ReportDetail label="Skiladagur" value={formatDate(task.due_date)} />
-        <ReportDetail label="Lokið" value={formatDate(task.completed_at)} />
-      </dl>
-
       <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
         <p className="font-bold text-slate-900">Lýsing</p>
         <p className="mt-1 whitespace-pre-wrap">{task.description || "Engin lýsing skráð."}</p>
@@ -236,15 +229,6 @@ function ReportTask({ task, data, includeImages, includeComments }: { task: Task
         </div>
       ) : null}
     </article>
-  );
-}
-
-function ReportDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="font-semibold text-slate-500">{label}</dt>
-      <dd className="mt-0.5 font-bold text-slate-800">{value || "-"}</dd>
-    </div>
   );
 }
 
