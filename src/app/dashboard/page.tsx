@@ -69,10 +69,10 @@ export default function DashboardPage() {
       <section className="mt-4">
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
-            <h2 className="font-bold text-ink">Atriði eftir ábyrgðaraðila</h2>
-            <p className="mt-1 text-sm text-slate-600">Hver ábyrgðaraðili með sín atriði út frá völdum filterum.</p>
+            <h2 className="font-bold text-ink">Atriði eftir undirflokki</h2>
+            <p className="mt-1 text-sm text-slate-600">Hver undirflokkur með sín atriði út frá völdum filterum.</p>
           </div>
-          <AssigneeTaskGroups tasks={filteredDashboardTasks} data={data} />
+          <SubcategoryTaskGroups tasks={filteredDashboardTasks} data={data} />
         </Card>
       </section>
 
@@ -190,7 +190,17 @@ function taskMatchesUnitSearch(task: Task, data: AppData, query: string) {
   return normalizedUnitName.includes(normalizedQuery) || Boolean(queryDigits && unitDigits.includes(queryDigits));
 }
 
-function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[]; data: AppData; showAssignee?: boolean }) {
+function DashboardTaskTable({
+  tasks,
+  data,
+  showAssignee = true,
+  secondaryColumn = "subcategory"
+}: {
+  tasks: Task[];
+  data: AppData;
+  showAssignee?: boolean;
+  secondaryColumn?: "subcategory" | "assignee";
+}) {
   const router = useRouter();
   const { updateTaskStatus } = useAppData();
   const [sortKey, setSortKey] = useState<DashboardSortKey>("status");
@@ -231,7 +241,7 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
               <Th sortKey="title" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Titill</Th>
               <Th sortKey="description" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Lýsing</Th>
               <Th sortKey="category" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Flokkur</Th>
-              <Th sortKey="subcategory" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Undirflokkur</Th>
+              <Th sortKey={secondaryColumn} activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>{secondaryColumn === "assignee" ? "Ábyrgðaraðili" : "Undirflokkur"}</Th>
               {showAssignee ? <Th sortKey="assignee" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Úthlutun á</Th> : null}
               <Th sortKey="status" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Staða</Th>
             </tr>
@@ -256,7 +266,7 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
                   <Td className="font-bold text-ink">{task.title}</Td>
                   <Td className="max-w-sm text-slate-600"><span className="line-clamp-2">{task.description || "-"}</span></Td>
                   <Td>{row.category}</Td>
-                  <Td>{row.subcategory}</Td>
+                  <Td>{secondaryColumn === "assignee" ? <UserPill name={row.assignee} /> : row.subcategory}</Td>
                   {showAssignee ? <Td><UserPill name={row.assignee} /></Td> : null}
                   <Td>
                     <DashboardStatusSelect
@@ -299,7 +309,7 @@ function DashboardTaskTable({ tasks, data, showAssignee = true }: { tasks: Task[
                 <Detail label="Gata" value={row.location} />
                 <Detail label="Íbúð" value={row.unit} />
                 <Detail label="Flokkur" value={row.category} />
-                <Detail label="Undirflokkur" value={row.subcategory} />
+                {secondaryColumn === "assignee" ? <Detail label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} /> : <Detail label="Undirflokkur" value={row.subcategory} />}
               </dl>
             </div>
           );
@@ -354,40 +364,47 @@ function getDashboardStatusSelectTone(status: TaskStatus) {
   return tones[status];
 }
 
-function AssigneeTaskGroups({ tasks, data }: { tasks: Task[]; data: AppData }) {
-  const groups = data.profiles
-    .map((profile) => ({
-      profile,
-      tasks: tasks.filter((task) => task.assigned_to_user_id === profile.id)
+function SubcategoryTaskGroups({ tasks, data }: { tasks: Task[]; data: AppData }) {
+  const groups = data.subcategories
+    .map((subcategory) => ({
+      subcategory,
+      category: data.categories.find((category) => category.id === subcategory.category_id),
+      tasks: tasks.filter((task) => task.subcategory_id === subcategory.id)
     }))
     .filter((group) => group.tasks.length > 0)
-    .sort((a, b) => a.profile.name.localeCompare(b.profile.name, "is", { sensitivity: "base" }));
+    .sort((a, b) => {
+      const categorySort = (a.category?.name ?? "").localeCompare(b.category?.name ?? "", "is", { sensitivity: "base" });
+      return categorySort || a.subcategory.name.localeCompare(b.subcategory.name, "is", { sensitivity: "base" });
+    });
 
-  const unassignedTasks = tasks.filter((task) => !task.assigned_to_user_id);
+  const uncategorizedTasks = tasks.filter((task) => !task.subcategory_id || !data.subcategories.some((subcategory) => subcategory.id === task.subcategory_id));
 
-  if (groups.length === 0 && unassignedTasks.length === 0) {
-    return <div className="p-6 text-sm text-slate-600">Engin ókláruð atriði eru úthlutuð eins og er.</div>;
+  if (groups.length === 0 && uncategorizedTasks.length === 0) {
+    return <div className="p-6 text-sm text-slate-600">Engin atriði fundust út frá völdum filterum.</div>;
   }
 
   return (
     <div className="grid gap-5 p-4">
       {groups.map((group) => (
-        <section key={group.profile.id} className="overflow-hidden rounded-md border border-slate-200">
+        <section key={group.subcategory.id} className="overflow-hidden rounded-md border border-slate-200">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
-            <h3 className="font-bold text-ink">{group.profile.name}</h3>
+            <div>
+              <h3 className="font-bold text-ink">{group.subcategory.name}</h3>
+              {group.category ? <p className="mt-0.5 text-xs font-semibold uppercase text-slate-500">{group.category.name}</p> : null}
+            </div>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{group.tasks.length} atriði</span>
           </div>
-          <DashboardTaskTable tasks={group.tasks} data={data} showAssignee={false} />
+          <DashboardTaskTable tasks={group.tasks} data={data} showAssignee={false} secondaryColumn="assignee" />
         </section>
       ))}
 
-      {unassignedTasks.length > 0 ? (
+      {uncategorizedTasks.length > 0 ? (
         <section className="overflow-hidden rounded-md border border-slate-200">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
-            <h3 className="font-bold text-ink">Óúthlutað</h3>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{unassignedTasks.length} atriði</span>
+            <h3 className="font-bold text-ink">Án undirflokks</h3>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{uncategorizedTasks.length} atriði</span>
           </div>
-          <DashboardTaskTable tasks={unassignedTasks} data={data} showAssignee={false} />
+          <DashboardTaskTable tasks={uncategorizedTasks} data={data} showAssignee={false} secondaryColumn="assignee" />
         </section>
       ) : null}
     </div>
