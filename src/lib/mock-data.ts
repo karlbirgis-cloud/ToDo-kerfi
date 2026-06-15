@@ -126,6 +126,8 @@ export const initialData: AppData = {
   unit_subcategories: [],
   tasks: [],
   task_images: [],
+  floor_plans: [],
+  task_plan_markers: [],
   task_comments: [],
   task_status_history: [],
   task_activity_log: []

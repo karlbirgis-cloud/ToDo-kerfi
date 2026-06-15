@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { use, useState } from "react";
-import { Camera, MessageSquare, Pencil, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { Camera, MapPin, MessageSquare, Pencil, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { TaskEditControls } from "@/components/forms";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
@@ -28,6 +29,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const images = data.task_images.filter((image) => image.task_id === task.id);
   const comments = data.task_comments.filter((item) => item.task_id === task.id);
   const history = data.task_status_history.filter((item) => item.task_id === task.id);
+  const planMarker = data.task_plan_markers.find((item) => item.task_id === task.id);
+  const floorPlan = planMarker ? data.floor_plans.find((item) => item.id === planMarker.floor_plan_id) : undefined;
   return (
     <AppShell>
       <Breadcrumbs items={[
@@ -70,6 +73,26 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               </>
             )}
           </Card>
+          {planMarker && floorPlan ? (
+            <Card>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 font-bold"><MapPin className="h-4 w-4" /> Staðsetning á grunnmynd</h2>
+                <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="text-sm font-bold text-blueprint hover:underline">
+                  Opna grunnmynd
+                </Link>
+              </div>
+              <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="group block overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-2">
+                <div className="relative mx-auto w-fit max-w-full">
+                  <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[420px] max-w-full object-contain" />
+                  <span
+                    className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200 transition group-hover:scale-110"
+                    style={{ left: `${planMarker.x_percent}%`, top: `${planMarker.y_percent}%` }}
+                  />
+                </div>
+                <div className="-mx-2 mt-2 border-t border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink">{floorPlan.name}</div>
+              </Link>
+            </Card>
+          ) : null}
           <Card>
             <h2 className="mb-3 flex items-center gap-2 font-bold"><Camera className="h-4 w-4" /> Myndir</h2>
             <label className="touch-target mb-4 flex cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-600">

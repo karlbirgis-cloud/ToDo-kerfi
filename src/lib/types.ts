@@ -128,6 +128,27 @@ export type TaskImage = {
   created_at: string;
 };
 
+export type FloorPlan = {
+  id: string;
+  project_id: string;
+  name: string;
+  image_url: string;
+  storage_path: string;
+  uploaded_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskPlanMarker = {
+  id: string;
+  task_id: string;
+  floor_plan_id: string;
+  x_percent: number;
+  y_percent: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TaskComment = {
   id: string;
   task_id: string;
@@ -166,6 +187,8 @@ export type AppData = {
   unit_subcategories: UnitSubcategory[];
   tasks: Task[];
   task_images: TaskImage[];
+  floor_plans: FloorPlan[];
+  task_plan_markers: TaskPlanMarker[];
   task_comments: TaskComment[];
   task_status_history: TaskStatusHistory[];
   task_activity_log: TaskActivityLog[];
