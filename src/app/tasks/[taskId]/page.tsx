@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
-import { Camera, MapPin, MessageSquare, Pencil, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { Camera, MapPin, MessageSquare, Pencil, RotateCcw, Save, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { TaskEditControls } from "@/components/forms";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
 import { cn, formatDate } from "@/lib/utils";
-import type { AppData, FloorPlan, Task } from "@/lib/types";
+import type { AppData, FloorPlan, Task, TaskPlanMarker } from "@/lib/types";
 
 export default function TaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = use(params);
-  const { data, addComment, addTaskImages, deleteTaskImage, reopenTask, updateTask } = useAppData();
+  const { data, addComment, addTaskImages, createTaskPlanMarker, deleteTaskImage, reopenTask, updateTask } = useAppData();
   const [comment, setComment] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
@@ -31,7 +31,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const history = data.task_status_history.filter((item) => item.task_id === task.id);
   const planMarker = data.task_plan_markers.find((item) => item.task_id === task.id);
   const floorPlan = planMarker ? data.floor_plans.find((item) => item.id === planMarker.floor_plan_id) : undefined;
-  const isPdf = floorPlan ? isPdfFloorPlan(floorPlan) : false;
+  const projectFloorPlans = data.floor_plans
+    .filter((item) => item.project_id === task.project_id)
+    .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
   return (
     <AppShell>
       <Breadcrumbs items={[
@@ -74,34 +76,15 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               </>
             )}
           </Card>
-          {planMarker && floorPlan ? (
-            <Card>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 font-bold"><MapPin className="h-4 w-4" /> Staðsetning á grunnmynd</h2>
-                <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="text-sm font-bold text-blueprint hover:underline">
-                  Opna grunnmynd
-                </Link>
-              </div>
-              <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="group block overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-2">
-                <div className={cn("relative mx-auto max-w-full", isPdf ? "h-[420px] w-full" : "w-fit")}>
-                  {isPdf ? (
-                    <iframe
-                      src={`${floorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
-                      title={floorPlan.name}
-                      className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
-                    />
-                  ) : (
-                    <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[420px] max-w-full object-contain" />
-                  )}
-                  <span
-                    className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200 transition group-hover:scale-110"
-                    style={{ left: `${planMarker.x_percent}%`, top: `${planMarker.y_percent}%` }}
-                  />
-                </div>
-                <div className="-mx-2 mt-2 border-t border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink">{floorPlan.name}</div>
-              </Link>
-            </Card>
-          ) : null}
+          <TaskFloorPlanLocation
+            floorPlan={floorPlan}
+            marker={planMarker}
+            projectFloorPlans={projectFloorPlans}
+            task={task}
+            onSave={(floorPlanId, nextMarker) => {
+              createTaskPlanMarker({ task_id: task.id, floor_plan_id: floorPlanId, x_percent: nextMarker.x, y_percent: nextMarker.y });
+            }}
+          />
           <Card>
             <h2 className="mb-3 flex items-center gap-2 font-bold"><Camera className="h-4 w-4" /> Myndir</h2>
             <label className="touch-target mb-4 flex cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-600">
@@ -194,6 +177,164 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+function TaskFloorPlanLocation({
+  floorPlan,
+  marker,
+  onSave,
+  projectFloorPlans,
+  task
+}: {
+  floorPlan?: FloorPlan;
+  marker?: TaskPlanMarker;
+  onSave: (floorPlanId: string, marker: { x: number; y: number }) => void;
+  projectFloorPlans: FloorPlan[];
+  task: Task;
+}) {
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [selectedFloorPlanId, setSelectedFloorPlanId] = useState(marker?.floor_plan_id ?? projectFloorPlans[0]?.id ?? "");
+  const [draftMarker, setDraftMarker] = useState<{ x: number; y: number } | null>(
+    marker ? { x: marker.x_percent, y: marker.y_percent } : null
+  );
+  const [zoom, setZoom] = useState(1);
+  const selectedFloorPlan = projectFloorPlans.find((item) => item.id === selectedFloorPlanId) ?? floorPlan ?? projectFloorPlans[0];
+  const isPdf = selectedFloorPlan ? isPdfFloorPlan(selectedFloorPlan) : false;
+  const shouldEdit = isEditingLocation || !marker;
+
+  if (projectFloorPlans.length === 0) {
+    return (
+      <Card>
+        <h2 className="mb-3 flex items-center gap-2 font-bold"><MapPin className="h-4 w-4" /> Staðsetning á grunnmynd</h2>
+        <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Engar grunnmyndir hafa verið skráðar á þetta verkefni.</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-bold"><MapPin className="h-4 w-4" /> Staðsetning á grunnmynd</h2>
+        {marker && floorPlan && !shouldEdit ? (
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="touch-target inline-flex items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-bold text-blueprint hover:bg-slate-50">
+              Opna grunnmynd
+            </Link>
+            <Button type="button" onClick={() => {
+              setSelectedFloorPlanId(marker.floor_plan_id);
+              setDraftMarker({ x: marker.x_percent, y: marker.y_percent });
+              setIsEditingLocation(true);
+            }}>
+              <MapPin className="h-4 w-4" /> Breyta staðsetningu
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {shouldEdit ? (
+        <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              Grunnmynd
+              <select
+                value={selectedFloorPlan?.id ?? ""}
+                onChange={(event) => {
+                  setSelectedFloorPlanId(event.target.value);
+                  setDraftMarker(null);
+                }}
+                className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              >
+                {projectFloorPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+              </select>
+            </label>
+            <div className="flex flex-wrap items-end gap-2">
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}>
+                <ZoomOut className="h-4 w-4" /> Minnka
+              </Button>
+              <span className="flex h-11 min-w-16 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-sm font-bold text-ink">{Math.round(zoom * 100)}%</span>
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" onClick={() => setZoom((current) => Math.min(3, current + 0.25))}>
+                <ZoomIn className="h-4 w-4" /> Stækka
+              </Button>
+            </div>
+          </div>
+          <p className={cn("rounded-md p-3 text-sm font-semibold", draftMarker ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
+            {draftMarker ? `Punktur valinn: ${draftMarker.x.toFixed(1)}% / ${draftMarker.y.toFixed(1)}%` : "Smelltu á grunnmyndina til að velja staðsetningu."}
+          </p>
+          {selectedFloorPlan ? (
+            <div className="h-[520px] overflow-auto rounded-md border border-slate-200 bg-slate-100 p-3">
+              <div
+                className={cn("relative mx-auto cursor-crosshair", isPdf ? "min-h-[520px]" : "")}
+                style={{ width: `${zoom * 100}%`, height: isPdf ? `${Math.max(520, 520 * zoom)}px` : undefined }}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const x = ((event.clientX - rect.left) / rect.width) * 100;
+                  const y = ((event.clientY - rect.top) / rect.height) * 100;
+                  setDraftMarker({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+                }}
+              >
+                {isPdf ? (
+                  <iframe
+                    src={`${selectedFloorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+                    title={selectedFloorPlan.name}
+                    className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+                  />
+                ) : (
+                  <img src={selectedFloorPlan.image_url} alt={selectedFloorPlan.name} className="block w-full max-w-none object-contain" />
+                )}
+                {draftMarker ? (
+                  <span
+                    className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200"
+                    style={{ left: `${draftMarker.x}%`, top: `${draftMarker.y}%` }}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              disabled={!selectedFloorPlan || !draftMarker}
+              onClick={() => {
+                if (!selectedFloorPlan || !draftMarker) return;
+                onSave(selectedFloorPlan.id, draftMarker);
+                setIsEditingLocation(false);
+              }}
+            >
+              <Save className="h-4 w-4" /> Vista staðsetningu
+            </Button>
+            {marker ? (
+              <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={() => {
+                setDraftMarker({ x: marker.x_percent, y: marker.y_percent });
+                setSelectedFloorPlanId(marker.floor_plan_id);
+                setIsEditingLocation(false);
+              }}>
+                <X className="h-4 w-4" /> Hætta við
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : floorPlan && marker ? (
+        <Link href={`/projects/${task.project_id}/floor-plans/${floorPlan.id}`} className="group block overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-2">
+          <div className={cn("relative mx-auto max-w-full", isPdfFloorPlan(floorPlan) ? "h-[420px] w-full" : "w-fit")}>
+            {isPdfFloorPlan(floorPlan) ? (
+              <iframe
+                src={`${floorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+                title={floorPlan.name}
+                className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+              />
+            ) : (
+              <img src={floorPlan.image_url} alt={floorPlan.name} className="block max-h-[420px] max-w-full object-contain" />
+            )}
+            <span
+              className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200 transition group-hover:scale-110"
+              style={{ left: `${marker.x_percent}%`, top: `${marker.y_percent}%` }}
+            />
+          </div>
+          <div className="-mx-2 mt-2 border-t border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink">{floorPlan.name}</div>
+        </Link>
+      ) : null}
+    </Card>
   );
 }
 
