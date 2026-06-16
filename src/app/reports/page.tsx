@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Camera, FileText, Printer } from "lucide-react";
+import { Camera, FileText, MapPin, Printer } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
-import type { AppData, Task, TaskStatus } from "@/lib/types";
+import type { AppData, FloorPlan, Task, TaskPlanMarker, TaskStatus } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
 type StatusFilter = "active" | "all" | TaskStatus;
@@ -26,6 +26,7 @@ export default function ReportsPage() {
   const [unitSearch, setUnitSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [includeImages, setIncludeImages] = useState(true);
+  const [includeFloorPlans, setIncludeFloorPlans] = useState(true);
   const [includeComments, setIncludeComments] = useState(true);
 
   const projectOptions = useMemo(() => getProjectOptions(data), [data]);
@@ -114,6 +115,15 @@ export default function ReportsPage() {
               <label className="touch-target flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700">
                 <input
                   type="checkbox"
+                  checked={includeFloorPlans}
+                  onChange={(event) => setIncludeFloorPlans(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-blueprint focus:ring-blueprint/30"
+                />
+                Grunnmyndir
+              </label>
+              <label className="touch-target flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700">
+                <input
+                  type="checkbox"
                   checked={includeImages}
                   onChange={(event) => setIncludeImages(event.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-blueprint focus:ring-blueprint/30"
@@ -150,6 +160,7 @@ export default function ReportsPage() {
                 key={task.id}
                 task={task}
                 data={data}
+                includeFloorPlans={includeFloorPlans}
                 includeImages={includeImages}
                 includeComments={includeComments}
               />
@@ -176,10 +187,12 @@ function ReportHeader({ title, subtitle }: { title: string; subtitle: string }) 
   );
 }
 
-function ReportTask({ task, data, includeImages, includeComments }: { task: Task; data: AppData; includeImages: boolean; includeComments: boolean }) {
+function ReportTask({ task, data, includeFloorPlans, includeImages, includeComments }: { task: Task; data: AppData; includeFloorPlans: boolean; includeImages: boolean; includeComments: boolean }) {
   const row = getTaskReportRow(task, data);
   const images = imagesForTask(data, task.id);
   const comments = data.task_comments.filter((comment) => comment.task_id === task.id);
+  const planMarker = data.task_plan_markers.find((marker) => marker.task_id === task.id);
+  const floorPlan = planMarker ? data.floor_plans.find((plan) => plan.id === planMarker.floor_plan_id) : undefined;
 
   return (
     <article className={cn("print-break-inside-avoid rounded-md border p-4", getTaskBorderTone(task.status))}>
@@ -199,6 +212,10 @@ function ReportTask({ task, data, includeImages, includeComments }: { task: Task
         <p className="font-bold text-slate-900">Lýsing</p>
         <p className="mt-1 whitespace-pre-wrap">{task.description || "Engin lýsing skráð."}</p>
       </div>
+
+      {includeFloorPlans && planMarker && floorPlan ? (
+        <ReportFloorPlanMarker floorPlan={floorPlan} marker={planMarker} taskTitle={task.title} />
+      ) : null}
 
       {includeImages && images.length > 0 ? (
         <div className="mt-4">
@@ -229,6 +246,35 @@ function ReportTask({ task, data, includeImages, includeComments }: { task: Task
         </div>
       ) : null}
     </article>
+  );
+}
+
+function ReportFloorPlanMarker({ floorPlan, marker, taskTitle }: { floorPlan: FloorPlan; marker: TaskPlanMarker; taskTitle: string }) {
+  const isPdf = isPdfFloorPlan(floorPlan);
+
+  return (
+    <div className="mt-4 print-break-inside-avoid">
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><MapPin className="h-4 w-4" /> Staðsetning á grunnmynd</h3>
+      <div className="overflow-hidden rounded-md border border-slate-200 bg-slate-100 p-2">
+        <div className={cn("relative mx-auto max-w-full", isPdf ? "h-80 w-full" : "w-fit")}>
+          {isPdf ? (
+            <iframe
+              src={`${floorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+              title={`Grunnmynd fyrir ${taskTitle}`}
+              className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={floorPlan.image_url} alt={`Grunnmynd fyrir ${taskTitle}`} className="block max-h-80 max-w-full object-contain" />
+          )}
+          <span
+            className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200"
+            style={{ left: `${marker.x_percent}%`, top: `${marker.y_percent}%` }}
+          />
+        </div>
+        <div className="-mx-2 mt-2 border-t border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink">{floorPlan.name}</div>
+      </div>
+    </div>
   );
 }
 
@@ -321,6 +367,10 @@ function taskMatchesUnitSearch(task: Task, data: AppData, query: string) {
 
 function imagesForTask(data: AppData, taskId: string) {
   return data.task_images.filter((image) => image.task_id === taskId);
+}
+
+function isPdfFloorPlan(plan: FloorPlan) {
+  return plan.mime_type === "application/pdf" || plan.storage_path.toLowerCase().endsWith(".pdf") || plan.image_url.toLowerCase().includes(".pdf");
 }
 
 function getTaskBorderTone(status: TaskStatus) {
