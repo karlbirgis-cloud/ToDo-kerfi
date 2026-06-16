@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Camera, Plus, Save, Trash2 } from "lucide-react";
+import { Camera, Plus, Save, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "./ui";
 import { priorityLabels, statusLabels, unitTypeLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
-import type { TaskPriority, TaskStatus, UnitType } from "@/lib/types";
+import type { FloorPlan, TaskPriority, TaskStatus, UnitType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export function ProjectForm() {
   const router = useRouter();
@@ -124,10 +125,18 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
 
 export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: string; locationId: string; unitId: string }) {
   const router = useRouter();
-  const { data, createTask, addTaskImages } = useAppData();
+  const { data, createTask, createTaskPlanMarker, addTaskImages } = useAppData();
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [selectedFloorPlanId, setSelectedFloorPlanId] = useState("");
+  const [planMarker, setPlanMarker] = useState<{ x: number; y: number } | null>(null);
+  const [planZoom, setPlanZoom] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const projectFloorPlans = data.floor_plans
+    .filter((plan) => plan.project_id === projectId)
+    .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
+  const selectedFloorPlan = projectFloorPlans.find((plan) => plan.id === selectedFloorPlanId);
+  const selectedFloorPlanIsPdf = selectedFloorPlan ? isPdfFloorPlan(selectedFloorPlan) : false;
   const unitCategories = data.unit_categories
     .filter((item) => item.unit_id === unitId)
     .map((item) => data.categories.find((category) => category.id === item.category_id))
@@ -166,6 +175,14 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
             assigned_to_user_id: String(form.get("assigned_to_user_id") ?? ""),
             priority: "medium"
           });
+          if (selectedFloorPlan && planMarker) {
+            createTaskPlanMarker({
+              task_id: id,
+              floor_plan_id: selectedFloorPlan.id,
+              x_percent: planMarker.x,
+              y_percent: planMarker.y
+            });
+          }
           if (imageFiles.length > 0) await addTaskImages(id, imageFiles);
           router.push(`/tasks/${id}`);
         } finally {
@@ -192,6 +209,76 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
       </label>
       <Select name="subcategory_id" label="Undirflokkur" options={Object.fromEntries(unitSubcategories.map((subcategory) => [subcategory.id, subcategory.name]))} required />
       <Select name="assigned_to_user_id" label="Úthlutun á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.profiles.map((profile) => [profile.id, profile.name])) }} />
+      {projectFloorPlans.length > 0 ? (
+        <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="grid min-w-64 flex-1 gap-1 text-sm font-semibold text-slate-700">
+              Staðsetning á grunnmynd
+              <select
+                value={selectedFloorPlanId}
+                onChange={(event) => {
+                  setSelectedFloorPlanId(event.target.value);
+                  setPlanMarker(null);
+                }}
+                className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              >
+                <option value="">Engin grunnmynd valin</option>
+                {projectFloorPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+              </select>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" disabled={!selectedFloorPlan} onClick={() => setPlanZoom((current) => Math.max(0.5, current - 0.25))}>
+                <ZoomOut className="h-4 w-4" /> Minnka
+              </Button>
+              <span className="flex h-11 min-w-16 items-center justify-center rounded-md border border-slate-200 bg-white text-sm font-bold text-ink">{Math.round(planZoom * 100)}%</span>
+              <Button type="button" className="bg-slate-700 hover:bg-slate-800" disabled={!selectedFloorPlan} onClick={() => setPlanZoom((current) => Math.min(3, current + 0.25))}>
+                <ZoomIn className="h-4 w-4" /> Stækka
+              </Button>
+              {planMarker ? (
+                <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={() => setPlanMarker(null)}>
+                  <X className="h-4 w-4" /> Hreinsa
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {selectedFloorPlan ? (
+            <>
+              <p className={cn("rounded-md p-3 text-sm font-semibold", planMarker ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900")}>
+                {planMarker ? `Punktur valinn: ${planMarker.x.toFixed(1)}% / ${planMarker.y.toFixed(1)}%` : "Smelltu á grunnmyndina til að merkja staðsetningu."}
+              </p>
+              <div className="h-[420px] overflow-auto rounded-md border border-slate-200 bg-slate-100 p-3">
+                <div
+                  className={cn("relative mx-auto cursor-crosshair", selectedFloorPlanIsPdf ? "min-h-[420px]" : "")}
+                  style={{ width: `${planZoom * 100}%`, height: selectedFloorPlanIsPdf ? `${Math.max(420, 420 * planZoom)}px` : undefined }}
+                  onClick={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const x = ((event.clientX - rect.left) / rect.width) * 100;
+                    const y = ((event.clientY - rect.top) / rect.height) * 100;
+                    setPlanMarker({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+                  }}
+                >
+                  {selectedFloorPlanIsPdf ? (
+                    <iframe
+                      src={`${selectedFloorPlan.image_url}#toolbar=0&navpanes=0&view=FitH`}
+                      title={selectedFloorPlan.name}
+                      className="pointer-events-none h-full w-full rounded-sm border-0 bg-white"
+                    />
+                  ) : (
+                    <img src={selectedFloorPlan.image_url} alt={selectedFloorPlan.name} className="block w-full max-w-none object-contain" />
+                  )}
+                  {planMarker ? (
+                    <span
+                      className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow-lg ring-4 ring-red-200"
+                      style={{ left: `${planMarker.x}%`, top: `${planMarker.y}%` }}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <label className="grid gap-2 text-sm font-semibold text-slate-700">
         Myndir
         <span className="touch-target flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-bold text-slate-700 transition hover:border-blueprint hover:bg-blue-50">
@@ -264,4 +351,8 @@ function Select({ label, options, ...props }: React.SelectHTMLAttributes<HTMLSel
       </select>
     </label>
   );
+}
+
+function isPdfFloorPlan(plan: FloorPlan) {
+  return plan.mime_type === "application/pdf" || plan.storage_path.toLowerCase().endsWith(".pdf") || plan.image_url.toLowerCase().includes(".pdf");
 }

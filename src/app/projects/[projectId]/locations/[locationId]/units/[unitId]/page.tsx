@@ -62,20 +62,21 @@ export default function UnitPage({ params }: { params: Promise<{ projectId: stri
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <TaskTable tasks={tasks} data={data} />
-        <div className="grid gap-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="grid gap-4">
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
+            <Plus className="h-4 w-4" /> Nýtt atriði
+          </h2>
+          <UnitTaskForm projectId={project.id} locationId={location.id} unitId={unit.id} />
+        </Card>
+
+        <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+          <TaskTable tasks={tasks} data={data} />
           <Card>
             <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
               <Pencil className="h-4 w-4" /> Breyta heiti
             </h2>
             <UnitRenameForm unit={unit} />
-          </Card>
-          <Card>
-            <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
-              <Plus className="h-4 w-4" /> Nýtt atriði
-            </h2>
-            <UnitTaskForm projectId={project.id} locationId={location.id} unitId={unit.id} />
           </Card>
         </div>
       </div>
