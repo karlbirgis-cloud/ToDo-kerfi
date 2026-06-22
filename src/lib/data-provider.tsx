@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
@@ -35,6 +35,7 @@ type DataContextValue = {
   deleteTaskImage(imageId: string): Promise<void>;
   addFloorPlan(projectId: string, name: string, file: File): Promise<string>;
   createTaskPlanMarker(input: NewTaskPlanMarkerInput): string;
+  flushPendingCloudSave(): Promise<void>;
   resetDemoData(): void;
 };
 
@@ -67,13 +68,34 @@ function normalizeTaskStatuses(data: AppData): AppData {
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [data, setData] = useState<AppData>(initialData);
-  const [isReady, setIsReady] = useState(false);
   const [persistenceMode, setPersistenceMode] = useState<"cloud" | "local">(hasSupabaseEnv ? "cloud" : "local");
+  const dataRef = useRef<AppData>(initialData);
+  const pendingCloudSaveRef = useRef<Promise<void>>(Promise.resolve());
   const currentUserId =
     data.profiles.find((profile) => profile.email.toLowerCase() === user?.email?.toLowerCase())?.id ??
     user?.id ??
     "user_manager";
   const useCloudData = hasSupabaseEnv;
+
+  const persistCloudData = useCallback((nextData: AppData) => {
+    pendingCloudSaveRef.current = pendingCloudSaveRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const response = await fetch("/api/app-data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: nextData })
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(payload?.error ?? "Cloud data could not be saved.");
+        }
+      });
+
+    pendingCloudSaveRef.current.catch((error) => console.error(error));
+    return pendingCloudSaveRef.current;
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,9 +103,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async function loadData() {
       if (!useCloudData) {
         if (isMounted) {
-          setData(hydrateData());
+          const nextData = hydrateData();
+          dataRef.current = nextData;
+          setData(nextData);
           setPersistenceMode("local");
-          setIsReady(true);
         }
         return;
       }
@@ -93,17 +116,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (!response.ok) throw new Error("Cloud data could not be loaded.");
         const payload = (await response.json()) as { data: AppData };
         if (isMounted) {
-          setData(normalizeTaskStatuses(payload.data));
+          const nextData = normalizeTaskStatuses(payload.data);
+          dataRef.current = nextData;
+          setData(nextData);
           setPersistenceMode("cloud");
         }
       } catch (error) {
         console.error(error);
         if (isMounted) {
-          setData(hydrateData());
+          const nextData = hydrateData();
+          dataRef.current = nextData;
+          setData(nextData);
           setPersistenceMode("local");
         }
-      } finally {
-        if (isMounted) setIsReady(true);
       }
     }
 
@@ -113,25 +138,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
     };
   }, [useCloudData]);
-
-  useEffect(() => {
-    if (!isReady) return;
-
-    if (persistenceMode === "local") {
-      if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(data));
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      fetch("/api/app-data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data })
-      }).catch((error) => console.error(error));
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [data, isReady, persistenceMode]);
 
   const value = useMemo<DataContextValue>(() => {
     function createDefaultStructureForUnit(nextData: AppData, unitId: string) {
@@ -160,11 +166,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     function update(mutator: (draft: AppData) => void) {
-      setData((current) => {
-        const draft = structuredClone(current);
-        mutator(draft);
-        return draft;
-      });
+      const draft = structuredClone(dataRef.current);
+      mutator(draft);
+      dataRef.current = draft;
+      setData(draft);
+
+      if (persistenceMode === "local") {
+        if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(draft));
+      } else {
+        persistCloudData(draft);
+      }
     }
 
     return {
@@ -464,11 +475,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
         return id;
       },
+      async flushPendingCloudSave() {
+        await pendingCloudSaveRef.current;
+      },
       resetDemoData() {
+        dataRef.current = initialData;
         setData(initialData);
+        if (persistenceMode === "local") {
+          if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(initialData));
+        } else {
+          persistCloudData(initialData);
+        }
       }
     };
-  }, [currentUserId, data, persistenceMode]);
+  }, [currentUserId, data, persistenceMode, persistCloudData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

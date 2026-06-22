@@ -87,9 +87,10 @@ export function BulkUnitForm({ projectId, locationId }: { projectId: string; loc
 
 export function TaskForm({ projectId, locationId, unitId, categoryId, subcategoryId }: { projectId: string; locationId: string; unitId: string; categoryId: string; subcategoryId: string }) {
   const router = useRouter();
-  const { data, createTask } = useAppData();
+  const { data, createTask, flushPendingCloudSave } = useAppData();
+  const [errorMessage, setErrorMessage] = useState("");
   return (
-    <form className="grid gap-3" onSubmit={(event) => {
+    <form className="grid gap-3" onSubmit={async (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const id = createTask({
@@ -104,7 +105,13 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         priority: form.get("priority") as TaskPriority,
         due_date: String(form.get("due_date") ?? "")
       });
-      router.push(`/tasks/${id}`);
+      try {
+        await flushPendingCloudSave();
+        router.push(`/tasks/${id}`);
+      } catch (error) {
+        console.error(error);
+        setErrorMessage("Ekki tókst að vista atriðið í skýið. Athugaðu sambandið og reyndu aftur.");
+      }
     }}>
       <Field name="title" label="Titill" placeholder="Lagfæra skemmd á vegg" required />
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
@@ -119,19 +126,21 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         <span className="touch-target flex items-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm text-slate-500"><Camera className="h-4 w-4" /> Myndaupphleðsla vistast á atriðasíðu</span>
       </label>
       <Button><Save className="h-4 w-4" /> Stofna atriði</Button>
+      {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
     </form>
   );
 }
 
 export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: string; locationId: string; unitId: string }) {
   const router = useRouter();
-  const { data, createTask, createTaskPlanMarker, addTaskImages } = useAppData();
+  const { data, createTask, createTaskPlanMarker, addTaskImages, flushPendingCloudSave } = useAppData();
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [selectedFloorPlanId, setSelectedFloorPlanId] = useState("");
   const [planMarker, setPlanMarker] = useState<{ x: number; y: number } | null>(null);
   const [planZoom, setPlanZoom] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const projectFloorPlans = data.floor_plans
     .filter((plan) => plan.project_id === projectId)
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
@@ -164,6 +173,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
         }
 
         try {
+          setErrorMessage("");
           const id = createTask({
             project_id: projectId,
             location_id: locationId,
@@ -184,7 +194,11 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
             });
           }
           if (imageFiles.length > 0) await addTaskImages(id, imageFiles);
+          await flushPendingCloudSave();
           router.push(`/tasks/${id}`);
+        } catch (error) {
+          console.error(error);
+          setErrorMessage("Ekki tókst að vista atriðið eða myndirnar. Athugaðu sambandið og reyndu aftur.");
         } finally {
           setIsSubmitting(false);
         }
@@ -308,6 +322,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
         </div>
       ) : null}
       <Button disabled={!categoryId || unitSubcategories.length === 0 || isSubmitting}><Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna atriði"}</Button>
+      {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
     </form>
   );
 }
