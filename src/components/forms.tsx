@@ -131,7 +131,17 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
   );
 }
 
-export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: string; locationId: string; unitId: string }) {
+export function UnitTaskForm({
+  projectId,
+  locationId,
+  unitId,
+  submitMode = "redirect"
+}: {
+  projectId: string;
+  locationId: string;
+  unitId: string;
+  submitMode?: "redirect" | "stay";
+}) {
   const router = useRouter();
   const { data, createTask, createTaskPlanMarker, addTaskImages, flushPendingCloudSave } = useAppData();
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -141,6 +151,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
   const [planZoom, setPlanZoom] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const projectFloorPlans = data.floor_plans
     .filter((plan) => plan.project_id === projectId)
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
@@ -164,8 +175,9 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
       className="grid gap-3"
       onSubmit={async (event) => {
         event.preventDefault();
+        const formElement = event.currentTarget;
         setIsSubmitting(true);
-        const form = new FormData(event.currentTarget);
+        const form = new FormData(formElement);
         const selectedSubcategoryId = String(form.get("subcategory_id") ?? "");
         if (!categoryId || !selectedSubcategoryId) {
           setIsSubmitting(false);
@@ -174,6 +186,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
 
         try {
           setErrorMessage("");
+          setSuccessMessage("");
           const id = createTask({
             project_id: projectId,
             location_id: locationId,
@@ -195,7 +208,18 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
           }
           if (imageFiles.length > 0) await addTaskImages(id, imageFiles);
           await flushPendingCloudSave();
-          router.push(`/tasks/${id}`);
+          if (submitMode === "stay") {
+            formElement.reset();
+            setImageFiles([]);
+            setImagePreviews((current) => {
+              current.forEach((preview) => URL.revokeObjectURL(preview));
+              return [];
+            });
+            setPlanMarker(null);
+            setSuccessMessage("Atriði vistað. Þú getur skráð næsta atriði í sama rými.");
+          } else {
+            router.push(`/tasks/${id}`);
+          }
         } catch (error) {
           console.error(error);
           setErrorMessage("Ekki tókst að vista atriðið eða myndirnar. Athugaðu sambandið og reyndu aftur.");
@@ -305,6 +329,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
             multiple
             onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
+              setSuccessMessage("");
               setImageFiles(files);
               setImagePreviews((current) => {
                 current.forEach((preview) => URL.revokeObjectURL(preview));
@@ -321,7 +346,8 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
           ))}
         </div>
       ) : null}
-      <Button disabled={!categoryId || unitSubcategories.length === 0 || isSubmitting}><Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna atriði"}</Button>
+      <Button disabled={!categoryId || unitSubcategories.length === 0 || isSubmitting}><Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : submitMode === "stay" ? "Vista og skrá næsta" : "Stofna atriði"}</Button>
+      {successMessage ? <p className="rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{successMessage}</p> : null}
       {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
     </form>
   );
