@@ -5,12 +5,27 @@ import type { AppData } from "@/lib/types";
 
 const stateKey = "production";
 
-export async function GET() {
+async function authorize(request: Request) {
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Supabase service role environment variable is missing." }, { status: 500 });
+    return { response: NextResponse.json({ error: "Supabase service role environment variable is missing." }, { status: 500 }) };
   }
+  const client = supabaseAdmin;
 
-  const { data, error } = await supabaseAdmin
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data.user) return { response: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+
+  return { client, user: data.user };
+}
+
+export async function GET(request: Request) {
+  const authorization = await authorize(request);
+  if (authorization.response) return authorization.response;
+
+  const { client } = authorization;
+  const { data, error } = await client
     .from("app_state")
     .select("data")
     .eq("key", stateKey)
@@ -20,7 +35,7 @@ export async function GET() {
 
   if (data?.data) return NextResponse.json({ data: data.data as AppData });
 
-  const { data: created, error: createError } = await supabaseAdmin
+  const { data: created, error: createError } = await client
     .from("app_state")
     .insert({ key: stateKey, data: initialData })
     .select("data")
@@ -32,14 +47,14 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Supabase service role environment variable is missing." }, { status: 500 });
-  }
+  const authorization = await authorize(request);
+  if (authorization.response) return authorization.response;
+  const { client } = authorization;
 
   const body = (await request.json()) as { data?: AppData };
   if (!body.data) return NextResponse.json({ error: "Missing data payload." }, { status: 400 });
 
-  const { error } = await supabaseAdmin
+  const { error } = await client
     .from("app_state")
     .upsert({ key: stateKey, data: body.data, updated_at: new Date().toISOString() });
 

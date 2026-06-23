@@ -1,4 +1,4 @@
-import type { TaskPriority, TaskStatus, UnitType, UserRole } from "./types";
+import type { AccessScope, TaskPriority, TaskStatus, UnitType, UserRole } from "./types";
 
 export const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
@@ -6,6 +6,12 @@ export const roleLabels: Record<UserRole, string> = {
   worker: "Starfsmaður",
   contractor: "Verktaki",
   viewer: "Lesaðgangur"
+};
+
+export const accessScopeLabels: Record<AccessScope, string> = {
+  all: "Allt kerfið",
+  company: "Fyrirtæki",
+  project: "Valin verkefni"
 };
 
 export const unitTypeLabels: Record<UnitType, string> = {

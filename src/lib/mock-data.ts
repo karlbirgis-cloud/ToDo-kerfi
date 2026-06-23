@@ -109,6 +109,9 @@ const units: Unit[] = projectLocationGroups.flatMap((group) => group.locations.f
 
 export const initialData: AppData = {
   companies: [{ id: "company_1", name: "Bryggjuhverfi", created_at: now }],
+  responsible_parties: [
+    { id: "responsible_1", name: "Bryggjuhverfi", email: "", phone: "", created_at: now, updated_at: now }
+  ],
   profiles: [
     { id: "user_admin", name: "Admin", email: "admin@bryggjuhverfi.is", phone: "", work_scope: "Kerfisstjórnun", employer: "Bryggjuhverfi", role: "admin", company_id: "company_1", created_at: now, updated_at: now },
     { id: "user_manager", name: "Verkstjóri", email: "verkstjori@bryggjuhverfi.is", phone: "", work_scope: "Verkstjórn og úthlutun", employer: "Bryggjuhverfi", role: "manager", company_id: "company_1", created_at: now, updated_at: now },

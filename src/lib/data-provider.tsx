@@ -4,13 +4,15 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useAuth } from "./auth-provider";
 import { initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
-import type { AppData, Profile, Task, TaskStatus, Unit, UnitType } from "./types";
+import type { AccessScope, AppData, Profile, ResponsibleParty, Task, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
 
 type NewProjectInput = { project_number: string; name: string };
 type NewLocationInput = { project_id: string; name: string; description?: string };
 type NewUnitInput = { project_id: string; location_id: string; name: string; unit_type: UnitType; floor?: string };
-type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> & Partial<Pick<Profile, "id" | "phone" | "work_scope" | "employer">>;
+type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> & Partial<Pick<Profile, "id" | "phone" | "work_scope" | "employer" | "access_scope" | "project_ids">>;
+type ProfilePatch = Partial<Pick<Profile, "name" | "email" | "phone" | "work_scope" | "employer" | "role" | "company_id" | "access_scope" | "project_ids">>;
+type NewResponsiblePartyInput = Pick<ResponsibleParty, "name"> & Partial<Pick<ResponsibleParty, "email" | "phone">>;
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
   Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "due_date">>;
 type NewTaskPlanMarkerInput = { task_id: string; floor_plan_id: string; x_percent: number; y_percent: number };
@@ -24,6 +26,9 @@ type DataContextValue = {
   createUnitsBulk(input: NewUnitInput & { names: string[] }): string[];
   updateUnit(unitId: string, patch: Partial<Pick<Unit, "name">>): void;
   createProfile(input: NewProfileInput): string;
+  updateProfile(profileId: string, patch: ProfilePatch): void;
+  createResponsibleParty(input: NewResponsiblePartyInput): string;
+  updateResponsibleParty(responsiblePartyId: string, patch: Partial<NewResponsiblePartyInput>): void;
   createTask(input: NewTaskInput): string;
   updateTask(taskId: string, patch: Partial<Task>): void;
   updateTaskStatus(taskId: string, status: TaskStatus): void;
@@ -45,14 +50,20 @@ const storageKey = "todo-kerfi-bryggjuhverfi-data-v3";
 function hydrateData(): AppData {
   if (typeof window === "undefined") return initialData;
   const saved = window.localStorage.getItem(storageKey);
-  return normalizeTaskStatuses(saved ? (JSON.parse(saved) as AppData) : initialData);
+  return normalizeData(saved ? (JSON.parse(saved) as AppData) : initialData);
 }
 
-function normalizeTaskStatuses(data: AppData): AppData {
+function normalizeData(data: AppData): AppData {
   return {
     ...data,
+    responsible_parties: data.responsible_parties ?? [],
     floor_plans: data.floor_plans ?? [],
     task_plan_markers: data.task_plan_markers ?? [],
+    profiles: data.profiles.map((profile) => ({
+      ...profile,
+      access_scope: profile.access_scope ?? defaultAccessScope(profile.role),
+      project_ids: profile.project_ids ?? []
+    })),
     tasks: data.tasks.map((task) => ({
       ...task,
       status: task.status === ("blocked" as TaskStatus) ? "open" : task.status
@@ -65,16 +76,55 @@ function normalizeTaskStatuses(data: AppData): AppData {
   };
 }
 
+function defaultAccessScope(role: Profile["role"]): AccessScope {
+  return role === "admin" ? "all" : "company";
+}
+
+function getScopedData(data: AppData, profile: Profile | undefined): AppData {
+  if (!profile || profile.access_scope === "all" || profile.role === "admin") return data;
+
+  const visibleProjectIds = new Set(
+    profile.access_scope === "project"
+      ? (profile.project_ids ?? [])
+      : data.projects.filter((project) => project.company_id === profile.company_id).map((project) => project.id)
+  );
+  const visibleLocationIds = new Set(data.locations.filter((location) => visibleProjectIds.has(location.project_id)).map((location) => location.id));
+  const visibleUnitIds = new Set(data.units.filter((unit) => visibleProjectIds.has(unit.project_id)).map((unit) => unit.id));
+  const visibleTaskIds = new Set(data.tasks.filter((task) => visibleProjectIds.has(task.project_id)).map((task) => task.id));
+
+  return {
+    ...data,
+    projects: data.projects.filter((project) => visibleProjectIds.has(project.id)),
+    locations: data.locations.filter((location) => visibleLocationIds.has(location.id)),
+    units: data.units.filter((unit) => visibleUnitIds.has(unit.id)),
+    unit_categories: data.unit_categories.filter((item) => visibleUnitIds.has(item.unit_id)),
+    unit_subcategories: data.unit_subcategories.filter((item) => visibleUnitIds.has(item.unit_id)),
+    tasks: data.tasks.filter((task) => visibleTaskIds.has(task.id)),
+    task_images: data.task_images.filter((image) => visibleTaskIds.has(image.task_id)),
+    floor_plans: data.floor_plans.filter((plan) => visibleProjectIds.has(plan.project_id)),
+    task_plan_markers: data.task_plan_markers.filter((marker) => visibleTaskIds.has(marker.task_id)),
+    task_comments: data.task_comments.filter((comment) => visibleTaskIds.has(comment.task_id)),
+    task_status_history: data.task_status_history.filter((history) => visibleTaskIds.has(history.task_id)),
+    task_activity_log: data.task_activity_log.filter((log) => visibleTaskIds.has(log.task_id))
+  };
+}
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { session, user, isLoading: isAuthLoading } = useAuth();
   const [data, setData] = useState<AppData>(initialData);
   const [persistenceMode, setPersistenceMode] = useState<"cloud" | "local">(hasSupabaseEnv ? "cloud" : "local");
   const dataRef = useRef<AppData>(initialData);
   const pendingCloudSaveRef = useRef<Promise<void>>(Promise.resolve());
+  const accessToken = session?.access_token;
+  const currentProfile = data.profiles.find((profile) =>
+    profile.id === user?.id ||
+    profile.email.toLowerCase() === user?.email?.toLowerCase()
+  );
   const currentUserId =
-    data.profiles.find((profile) => profile.email.toLowerCase() === user?.email?.toLowerCase())?.id ??
+    currentProfile?.id ??
     user?.id ??
     "user_manager";
+  const scopedData = getScopedData(data, currentProfile);
   const useCloudData = hasSupabaseEnv;
 
   const persistCloudData = useCallback((nextData: AppData) => {
@@ -83,7 +133,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       .then(async () => {
         const response = await fetch("/api/app-data", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken ?? ""}`
+          },
           body: JSON.stringify({ data: nextData })
         });
 
@@ -95,7 +148,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     pendingCloudSaveRef.current.catch((error) => console.error(error));
     return pendingCloudSaveRef.current;
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     let isMounted = true;
@@ -111,12 +164,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (isAuthLoading) return;
+
+      if (!accessToken) {
+        if (isMounted) {
+          dataRef.current = initialData;
+          setData(initialData);
+        }
+        return;
+      }
+
       try {
-        const response = await fetch("/api/app-data", { cache: "no-store" });
+        const response = await fetch("/api/app-data", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
         if (!response.ok) throw new Error("Cloud data could not be loaded.");
         const payload = (await response.json()) as { data: AppData };
         if (isMounted) {
-          const nextData = normalizeTaskStatuses(payload.data);
+          const nextData = normalizeData(payload.data);
           dataRef.current = nextData;
           setData(nextData);
           setPersistenceMode("cloud");
@@ -137,7 +203,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [useCloudData]);
+  }, [accessToken, isAuthLoading, session, useCloudData]);
 
   const value = useMemo<DataContextValue>(() => {
     function createDefaultStructureForUnit(nextData: AppData, unitId: string) {
@@ -179,7 +245,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     return {
-      data,
+      data: scopedData,
       currentUserId,
       createProject(input) {
         const id = makeId("project");
@@ -261,11 +327,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             employer: input.employer,
             role: input.role,
             company_id: input.company_id,
+            access_scope: input.access_scope ?? defaultAccessScope(input.role),
+            project_ids: input.project_ids ?? [],
             created_at: todayIso(),
             updated_at: todayIso()
           });
         });
         return id;
+      },
+      updateProfile(profileId, patch) {
+        update((draft) => {
+          const profile = draft.profiles.find((item) => item.id === profileId);
+          if (!profile) return;
+
+          Object.assign(profile, patch, {
+            access_scope: patch.access_scope ?? profile.access_scope ?? defaultAccessScope(profile.role),
+            project_ids: patch.project_ids ?? profile.project_ids ?? [],
+            updated_at: todayIso()
+          });
+        });
+      },
+      createResponsibleParty(input) {
+        const id = makeId("responsible");
+        update((draft) => {
+          draft.responsible_parties.push({
+            id,
+            name: input.name,
+            email: input.email,
+            phone: input.phone,
+            created_at: todayIso(),
+            updated_at: todayIso()
+          });
+        });
+        return id;
+      },
+      updateResponsibleParty(responsiblePartyId, patch) {
+        update((draft) => {
+          const responsibleParty = draft.responsible_parties.find((item) => item.id === responsiblePartyId);
+          if (!responsibleParty) return;
+          Object.assign(responsibleParty, patch, { updated_at: todayIso() });
+        });
       },
       createTask(input) {
         const id = makeId("task");
@@ -393,7 +494,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
       },
       async deleteTaskImage(imageId) {
-        const image = data.task_images.find((item) => item.id === imageId);
+        const image = dataRef.current.task_images.find((item) => item.id === imageId);
         if (!image) return;
 
         if (persistenceMode === "cloud") {
@@ -488,7 +589,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
-  }, [currentUserId, data, persistenceMode, persistCloudData]);
+  }, [currentUserId, scopedData, persistenceMode, persistCloudData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

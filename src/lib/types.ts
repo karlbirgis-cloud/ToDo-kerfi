@@ -1,4 +1,5 @@
 export type UserRole = "admin" | "manager" | "worker" | "contractor" | "viewer";
+export type AccessScope = "all" | "company" | "project";
 export type ProjectStatus = "active" | "paused" | "done";
 export type UnitType =
   | "apartment"
@@ -22,11 +23,22 @@ export type Profile = {
   employer?: string;
   role: UserRole;
   company_id: string;
+  access_scope?: AccessScope;
+  project_ids?: string[];
   created_at: string;
   updated_at: string;
 };
 
 export type Company = { id: string; name: string; created_at: string };
+
+export type ResponsibleParty = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export type Project = {
   id: string;
@@ -178,6 +190,7 @@ export type TaskActivityLog = {
 
 export type AppData = {
   companies: Company[];
+  responsible_parties: ResponsibleParty[];
   profiles: Profile[];
   projects: Project[];
   locations: Location[];
