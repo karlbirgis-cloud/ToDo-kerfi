@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { Camera, Check, MessageSquare, MoreHorizontal } from "lucide-react";
 import { Card, PriorityBadge, StatusBadge, UserPill } from "./ui";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
 import type { AppData, Task } from "@/lib/types";
 
 export function TaskCard({ task, data, onDone }: { task: Task; data: AppData; onDone?: () => void }) {
-  const assignee = data.profiles.find((profile) => profile.id === task.assigned_to_user_id);
+  const assigneeName = getTaskResponsiblePartyName(data, task);
   const comments = data.task_comments.filter((comment) => comment.task_id === task.id).length;
   const image = data.task_images.find((item) => item.task_id === task.id);
   return (
@@ -22,7 +22,7 @@ export function TaskCard({ task, data, onDone }: { task: Task; data: AppData; on
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusBadge status={task.status} />
           <PriorityBadge priority={task.priority} />
-          <UserPill name={assignee?.name} />
+          <UserPill name={assigneeName} />
         </div>
         <div className="mt-3 flex items-center justify-between text-xs font-medium text-slate-500">
           <span>Skiladagur: {formatDate(task.due_date)}</span>

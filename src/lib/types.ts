@@ -124,6 +124,7 @@ export type Task = {
   status: TaskStatus;
   priority: TaskPriority;
   assigned_to_user_id?: string;
+  responsible_party_id?: string;
   created_by_user_id: string;
   due_date?: string;
   completed_at?: string;

@@ -14,7 +14,7 @@ type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> &
 type ProfilePatch = Partial<Pick<Profile, "name" | "email" | "phone" | "work_scope" | "employer" | "role" | "company_id" | "access_scope" | "project_ids">>;
 type NewResponsiblePartyInput = Pick<ResponsibleParty, "name"> & Partial<Pick<ResponsibleParty, "email" | "phone">>;
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
-  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "due_date">>;
+  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "due_date">>;
 type NewTaskPlanMarkerInput = { task_id: string; floor_plan_id: string; x_percent: number; y_percent: number };
 
 type DataContextValue = {
@@ -384,6 +384,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             status: "open",
             priority: input.priority ?? "medium",
             assigned_to_user_id: input.assigned_to_user_id,
+            responsible_party_id: input.responsible_party_id,
             created_by_user_id: currentUserId,
             due_date: input.due_date,
             created_at: todayIso(),

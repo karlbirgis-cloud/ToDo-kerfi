@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, FloorPlan, Task, TaskPlanMarker, TaskStatus } from "@/lib/types";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
 
 type StatusFilter = "active" | "all" | TaskStatus;
 
@@ -297,8 +297,8 @@ function getLocationOptions(data: AppData, projectId: string) {
 function getAssigneeOptions(data: AppData) {
   return [
     { id: "unassigned", label: "Óúthlutað" },
-    ...data.profiles
-      .map((profile) => ({ id: profile.id, label: profile.name }))
+    ...data.responsible_parties
+      .map((party) => ({ id: party.id, label: party.name }))
       .sort((a, b) => a.label.localeCompare(b.label, "is", { sensitivity: "base" }))
   ];
 }
@@ -320,8 +320,9 @@ function getReportTasks(
       if (statusFilter !== "active" && statusFilter !== "all" && task.status !== statusFilter) return false;
       if (projectId && task.project_id !== projectId) return false;
       if (locationId && task.location_id !== locationId) return false;
-      if (assigneeId === "unassigned" && task.assigned_to_user_id) return false;
-      if (assigneeId && assigneeId !== "unassigned" && task.assigned_to_user_id !== assigneeId) return false;
+      const responsiblePartyId = task.responsible_party_id ?? task.assigned_to_user_id;
+      if (assigneeId === "unassigned" && responsiblePartyId) return false;
+      if (assigneeId && assigneeId !== "unassigned" && responsiblePartyId !== assigneeId) return false;
       if (unitSearch.trim() && !taskMatchesUnitSearch(task, data, unitSearch)) return false;
       return true;
     })
@@ -335,7 +336,7 @@ function getReportTitle(data: AppData, projectId: string, locationId: string, as
   const parts = [
     data.projects.find((project) => project.id === projectId)?.full_name,
     data.locations.find((location) => location.id === locationId)?.name,
-    assigneeId === "unassigned" ? "Óúthlutað" : data.profiles.find((profile) => profile.id === assigneeId)?.name,
+    assigneeId === "unassigned" ? "Óúthlutað" : data.responsible_parties.find((party) => party.id === assigneeId)?.name,
     unitSearch.trim() ? `Íbúð/rými: ${unitSearch.trim()}` : undefined
   ].filter(Boolean);
 
@@ -349,7 +350,7 @@ function getTaskReportRow(task: Task, data: AppData) {
     unit: data.units.find((unit) => unit.id === task.unit_id)?.name ?? "-",
     category: data.categories.find((category) => category.id === task.category_id)?.name ?? "-",
     subcategory: data.subcategories.find((subcategory) => subcategory.id === task.subcategory_id)?.name ?? "-",
-    assignee: data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name
+    assignee: getTaskResponsiblePartyName(data, task)
   };
 }
 

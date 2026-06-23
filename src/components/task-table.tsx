@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { StatusBadge, UserPill } from "./ui";
 import type { AppData, Task } from "@/lib/types";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
 
 export function TaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   const router = useRouter();
@@ -98,7 +98,7 @@ function getTaskRow(task: Task, data: AppData) {
   return {
     category: data.categories.find((category) => category.id === task.category_id)?.name ?? "-",
     subcategory: data.subcategories.find((subcategory) => subcategory.id === task.subcategory_id)?.name ?? "-",
-    assignee: data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name
+    assignee: getTaskResponsiblePartyName(data, task)
   };
 }
 

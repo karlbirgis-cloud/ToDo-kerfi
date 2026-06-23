@@ -39,6 +39,13 @@ export function tasksFor(data: AppData, scope: Partial<Pick<Task, "project_id" |
   );
 }
 
+export function getTaskResponsiblePartyName(data: AppData, task: Task) {
+  return (
+    data.responsible_parties.find((party) => party.id === task.responsible_party_id)?.name ??
+    data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name
+  );
+}
+
 export function formatDate(value?: string) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("is-IS", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));

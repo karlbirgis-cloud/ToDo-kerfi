@@ -7,7 +7,7 @@ import { TaskCard } from "@/components/task-card";
 import { TaskForm } from "@/components/forms";
 import { Card, EmptyState, FloatingAdd, PageHeader, SearchInput } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
-import { isOverdue } from "@/lib/utils";
+import { getTaskResponsiblePartyName, isOverdue } from "@/lib/utils";
 import type { TaskStatus } from "@/lib/types";
 
 const filters: Array<{ label: string; value: "all" | "mine" | "overdue" | TaskStatus }> = [
@@ -34,7 +34,7 @@ export default function SubcategoryPage({ params }: { params: Promise<{ projectI
     if (filter === "mine" && task.assigned_to_user_id !== currentUserId) return false;
     if (filter === "overdue" && !isOverdue(task)) return false;
     if (["open", "in_progress", "done"].includes(filter) && task.status !== filter) return false;
-    const assignee = data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name ?? "";
+    const assignee = getTaskResponsiblePartyName(data, task) ?? "";
     const haystack = `${task.title} ${task.description ?? ""} ${assignee}`.toLowerCase();
     return haystack.includes(query.toLowerCase());
   }), [data, subcategoryId, unitId, filter, query, currentUserId]);

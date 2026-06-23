@@ -30,7 +30,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   const [marker, setMarker] = useState<{ x: number; y: number } | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assignedToUserId, setAssignedToUserId] = useState("");
+  const [responsiblePartyId, setResponsiblePartyId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [zoom, setZoom] = useState(1);
   const existingMarkers = data.task_plan_markers.filter((item) => item.floor_plan_id === floorPlanId);
@@ -68,7 +68,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
                 subcategory_id: effectiveSubcategoryId,
                 title: title.trim(),
                 description: description.trim(),
-                assigned_to_user_id: assignedToUserId || undefined,
+                responsible_party_id: responsiblePartyId || undefined,
                 priority
               });
               createTaskPlanMarker({ task_id: taskId, floor_plan_id: floorPlan.id, x_percent: marker.x, y_percent: marker.y });
@@ -92,7 +92,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
               Lýsing
               <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
             </label>
-            <SelectField label="Úthlutun á" value={assignedToUserId} onChange={setAssignedToUserId} options={[{ value: "", label: "Óúthlutað" }, ...data.profiles.map((profile) => ({ value: profile.id, label: profile.name }))]} required={false} />
+            <SelectField label="Úthlutun á" value={responsiblePartyId} onChange={setResponsiblePartyId} options={[{ value: "", label: "Óúthlutað" }, ...data.responsible_parties.map((party) => ({ value: party.id, label: party.name }))]} required={false} />
             <SelectField label="Forgangur" value={priority} onChange={(value) => setPriority(value as TaskPriority)} options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))} />
             <div className="flex items-end lg:col-span-2">
               <Button className="w-full" disabled={!canCreate}><Save className="h-4 w-4" /> Stofna atriði</Button>

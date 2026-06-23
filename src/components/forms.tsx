@@ -101,7 +101,7 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         subcategory_id: subcategoryId,
         title: String(form.get("title")),
         description: String(form.get("description") ?? ""),
-        assigned_to_user_id: String(form.get("assigned_to_user_id") ?? ""),
+        responsible_party_id: String(form.get("responsible_party_id") ?? ""),
         priority: form.get("priority") as TaskPriority,
         due_date: String(form.get("due_date") ?? "")
       });
@@ -118,7 +118,7 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         Lýsing
         <textarea name="description" rows={4} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
       </label>
-      <Select name="assigned_to_user_id" label="Úthluta á" options={Object.fromEntries(data.profiles.map((profile) => [profile.id, profile.name]))} />
+      <Select name="responsible_party_id" label="Úthluta á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.responsible_parties.map((party) => [party.id, party.name])) }} />
       <Select name="priority" label="Forgangur" options={priorityLabels} />
       <Field name="due_date" type="date" label="Skiladagur" />
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
@@ -182,7 +182,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
             subcategory_id: selectedSubcategoryId,
             title: String(form.get("title")),
             description: String(form.get("description") ?? ""),
-            assigned_to_user_id: String(form.get("assigned_to_user_id") ?? ""),
+            responsible_party_id: String(form.get("responsible_party_id") ?? ""),
             priority: "medium"
           });
           if (selectedFloorPlan && planMarker) {
@@ -222,7 +222,7 @@ export function UnitTaskForm({ projectId, locationId, unitId }: { projectId: str
         </select>
       </label>
       <Select name="subcategory_id" label="Undirflokkur" options={Object.fromEntries(unitSubcategories.map((subcategory) => [subcategory.id, subcategory.name]))} required />
-      <Select name="assigned_to_user_id" label="Úthlutun á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.profiles.map((profile) => [profile.id, profile.name])) }} />
+      <Select name="responsible_party_id" label="Úthlutun á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.responsible_parties.map((party) => [party.id, party.name])) }} />
       {projectFloorPlans.length > 0 ? (
         <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
           <div className="flex flex-wrap items-end gap-3">

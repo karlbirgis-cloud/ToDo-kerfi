@@ -7,7 +7,7 @@ import { AppShell, Breadcrumbs } from "@/components/app-shell";
 import { TaskEditControls } from "@/components/forms";
 import { Button, Card, EmptyState, PageHeader, PriorityBadge, StatusBadge, UserPill } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
 import type { AppData, FloorPlan, Task, TaskPlanMarker } from "@/lib/types";
 
 export default function TaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
@@ -24,7 +24,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const unit = data.units.find((item) => item.id === task.unit_id);
   const category = data.categories.find((item) => item.id === task.category_id);
   const subcategory = data.subcategories.find((item) => item.id === task.subcategory_id);
-  const assignee = data.profiles.find((profile) => profile.id === task.assigned_to_user_id);
+  const responsiblePartyName = getTaskResponsiblePartyName(data, task);
   const creator = data.profiles.find((profile) => profile.id === task.created_by_user_id);
   const images = data.task_images.filter((image) => image.task_id === task.id);
   const comments = data.task_comments.filter((item) => item.task_id === task.id);
@@ -70,7 +70,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge status={task.status} />
                   <PriorityBadge priority={task.priority} />
-                  <UserPill name={assignee?.name} />
+                  <UserPill name={responsiblePartyName} />
                 </div>
                 <p className="mt-4 whitespace-pre-wrap text-slate-700">{task.description || "Engin lýsing skráð."}</p>
               </>
@@ -371,7 +371,11 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
 
   const subcategories = subcategoriesFor(categoryId);
   const [subcategoryId, setSubcategoryId] = useState(task.subcategory_id || subcategories[0]?.id || "");
-  const [assignedToUserId, setAssignedToUserId] = useState(task.assigned_to_user_id ?? "");
+  const [responsiblePartyId, setResponsiblePartyId] = useState(
+    task.responsible_party_id && data.responsible_parties.some((party) => party.id === task.responsible_party_id)
+      ? task.responsible_party_id
+      : ""
+  );
 
   return (
     <form
@@ -385,7 +389,8 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
           description: description.trim(),
           category_id: categoryId,
           subcategory_id: nextSubcategoryId,
-          assigned_to_user_id: assignedToUserId || undefined
+          responsible_party_id: responsiblePartyId || undefined,
+          assigned_to_user_id: undefined
         });
       }}
     >
@@ -439,12 +444,12 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
         Úthlutun á
         <select
-          value={assignedToUserId}
-          onChange={(event) => setAssignedToUserId(event.target.value)}
+          value={responsiblePartyId}
+          onChange={(event) => setResponsiblePartyId(event.target.value)}
           className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
         >
           <option value="">Óúthlutað</option>
-          {data.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+          {data.responsible_parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
         </select>
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">

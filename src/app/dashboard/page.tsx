@@ -7,7 +7,7 @@ import { PageHeader, Card, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus } from "@/lib/types";
-import { cn, isOverdue, summarizeTasks } from "@/lib/utils";
+import { cn, getTaskResponsiblePartyName, isOverdue, summarizeTasks } from "@/lib/utils";
 
 type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "assignee" | "status";
 type SortDirection = "asc" | "desc";
@@ -435,7 +435,7 @@ function getDashboardTaskRow(task: Task, data: AppData) {
     unit: data.units.find((unit) => unit.id === task.unit_id)?.name ?? "-",
     category: data.categories.find((category) => category.id === task.category_id)?.name ?? "-",
     subcategory: data.subcategories.find((subcategory) => subcategory.id === task.subcategory_id)?.name ?? "-",
-    assignee: data.profiles.find((profile) => profile.id === task.assigned_to_user_id)?.name
+    assignee: getTaskResponsiblePartyName(data, task)
   };
 }
 
