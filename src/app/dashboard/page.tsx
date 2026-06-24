@@ -9,13 +9,14 @@ import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus } from "@/lib/types";
 import { cn, getTaskResponsiblePartyName, isOverdue, summarizeTasks } from "@/lib/utils";
 
-type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "assignee" | "status";
+type DashboardSortKey = "project" | "location" | "unit" | "title" | "description" | "category" | "subcategory" | "inspectionType" | "assignee" | "status";
 type SortDirection = "asc" | "desc";
 
 export default function DashboardPage() {
   const { data } = useAppData();
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [selectedInspectionTypeId, setSelectedInspectionTypeId] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
   const [showDone, setShowDone] = useState(false);
   const summary = summarizeTasks(data.tasks);
@@ -29,6 +30,8 @@ export default function DashboardPage() {
   const filteredDashboardTasks = dashboardTasks.filter((task) => {
     if (selectedProjectId && task.project_id !== selectedProjectId) return false;
     if (selectedLocationId && task.location_id !== selectedLocationId) return false;
+    if (selectedInspectionTypeId === "none" && task.inspection_type_id) return false;
+    if (selectedInspectionTypeId && selectedInspectionTypeId !== "none" && task.inspection_type_id !== selectedInspectionTypeId) return false;
     if (unitSearch.trim() && !taskMatchesUnitSearch(task, data, unitSearch)) return false;
     return true;
   });
@@ -48,6 +51,7 @@ export default function DashboardPage() {
           data={data}
           selectedProjectId={selectedProjectId}
           selectedLocationId={selectedLocationId}
+          selectedInspectionTypeId={selectedInspectionTypeId}
           unitSearch={unitSearch}
           showDone={showDone}
           onProjectChange={(projectId) => {
@@ -55,11 +59,13 @@ export default function DashboardPage() {
             setSelectedLocationId("");
           }}
           onLocationChange={setSelectedLocationId}
+          onInspectionTypeChange={setSelectedInspectionTypeId}
           onUnitSearchChange={setUnitSearch}
           onShowDoneChange={setShowDone}
           onClear={() => {
             setSelectedProjectId("");
             setSelectedLocationId("");
+            setSelectedInspectionTypeId("");
             setUnitSearch("");
             setShowDone(false);
           }}
@@ -97,10 +103,12 @@ function DashboardFilters({
   data,
   selectedProjectId,
   selectedLocationId,
+  selectedInspectionTypeId,
   unitSearch,
   showDone,
   onProjectChange,
   onLocationChange,
+  onInspectionTypeChange,
   onUnitSearchChange,
   onShowDoneChange,
   onClear
@@ -108,10 +116,12 @@ function DashboardFilters({
   data: AppData;
   selectedProjectId: string;
   selectedLocationId: string;
+  selectedInspectionTypeId: string;
   unitSearch: string;
   showDone: boolean;
   onProjectChange: (projectId: string) => void;
   onLocationChange: (locationId: string) => void;
+  onInspectionTypeChange: (inspectionTypeId: string) => void;
   onUnitSearchChange: (query: string) => void;
   onShowDoneChange: (showDone: boolean) => void;
   onClear: () => void;
@@ -120,11 +130,12 @@ function DashboardFilters({
   const locations = data.locations
     .filter((location) => !selectedProjectId || location.project_id === selectedProjectId)
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
-  const hasActiveFilters = Boolean(selectedProjectId || selectedLocationId || unitSearch.trim() || showDone);
+  const inspectionTypes = [...data.inspection_types].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { sensitivity: "base" }));
+  const hasActiveFilters = Boolean(selectedProjectId || selectedLocationId || selectedInspectionTypeId || unitSearch.trim() || showDone);
 
   return (
     <Card>
-      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto] lg:items-end">
+      <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] lg:items-end">
         <label className="grid gap-1 text-sm font-semibold text-slate-700">
           Filtera eftir verkefni
           <select
@@ -155,6 +166,18 @@ function DashboardFilters({
             placeholder="T.d. 0105"
             className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
           />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Tegund úttektarlista
+          <select
+            value={selectedInspectionTypeId}
+            onChange={(event) => onInspectionTypeChange(event.target.value)}
+            className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+          >
+            <option value="">Allar tegundir</option>
+            <option value="none">Án tegundar</option>
+            {inspectionTypes.map((inspectionType) => <option key={inspectionType.id} value={inspectionType.id}>{inspectionType.name}</option>)}
+          </select>
         </label>
         <label className="touch-target flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700">
           <input
@@ -232,7 +255,7 @@ function DashboardTaskTable({
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className={cn("w-full border-collapse text-left text-sm", showAssignee ? "min-w-[1320px]" : "min-w-[1120px]")}>
+        <table className={cn("w-full border-collapse text-left text-sm", showAssignee ? "min-w-[1440px]" : "min-w-[1240px]")}>
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
             <tr>
               <Th sortKey="project" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Verkefni</Th>
@@ -242,6 +265,7 @@ function DashboardTaskTable({
               <Th sortKey="description" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Lýsing</Th>
               <Th sortKey="category" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Flokkur</Th>
               <Th sortKey={secondaryColumn} activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>{secondaryColumn === "assignee" ? "Ábyrgðaraðili" : "Undirflokkur"}</Th>
+              <Th sortKey="inspectionType" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Tegund</Th>
               {showAssignee ? <Th sortKey="assignee" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Úthlutun á</Th> : null}
               <Th sortKey="status" activeSortKey={sortKey} direction={sortDirection} onSort={toggleSort}>Staða</Th>
             </tr>
@@ -267,6 +291,7 @@ function DashboardTaskTable({
                   <Td className="max-w-sm text-slate-600"><span className="line-clamp-2">{task.description || "-"}</span></Td>
                   <Td>{row.category}</Td>
                   <Td>{secondaryColumn === "assignee" ? <UserPill name={row.assignee} /> : row.subcategory}</Td>
+                  <Td>{row.inspectionType}</Td>
                   {showAssignee ? <Td><UserPill name={row.assignee} /></Td> : null}
                   <Td>
                     <DashboardStatusSelect
@@ -309,6 +334,7 @@ function DashboardTaskTable({
                 <Detail label="Gata" value={row.location} />
                 <Detail label="Íbúð" value={row.unit} />
                 <Detail label="Flokkur" value={row.category} />
+                <Detail label="Tegund" value={row.inspectionType} />
                 {secondaryColumn === "assignee" ? <Detail label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} /> : <Detail label="Undirflokkur" value={row.subcategory} />}
               </dl>
             </div>
@@ -421,6 +447,7 @@ function getSortValue(task: Task, data: AppData, sortKey: DashboardSortKey) {
     description: task.description ?? "",
     category: row.category,
     subcategory: row.subcategory,
+    inspectionType: row.inspectionType,
     assignee: row.assignee ?? "Óúthlutað",
     status: statusLabels[task.status]
   };
@@ -435,6 +462,7 @@ function getDashboardTaskRow(task: Task, data: AppData) {
     unit: data.units.find((unit) => unit.id === task.unit_id)?.name ?? "-",
     category: data.categories.find((category) => category.id === task.category_id)?.name ?? "-",
     subcategory: data.subcategories.find((subcategory) => subcategory.id === task.subcategory_id)?.name ?? "-",
+    inspectionType: data.inspection_types.find((inspectionType) => inspectionType.id === task.inspection_type_id)?.name ?? "Án tegundar",
     assignee: getTaskResponsiblePartyName(data, task)
   };
 }

@@ -1,4 +1,4 @@
-import type { AppData, Category, Location, Subcategory, Unit } from "./types";
+import type { AppData, Category, InspectionType, Location, Subcategory, Unit } from "./types";
 
 const now = new Date().toISOString();
 
@@ -46,6 +46,15 @@ export const defaultSubcategories: Subcategory[] = Object.entries(subcategoryGro
     updated_at: now
   }))
 );
+
+export const defaultInspectionTypes: InspectionType[] = ["Öryggisúttekt", "Lokaúttekt", "Afhending"].map((name, index) => ({
+  id: `inspection_type_${index + 1}`,
+  name,
+  sort_order: index + 1,
+  is_active: true,
+  created_at: now,
+  updated_at: now
+}));
 
 const bryggjuhverfiLocations = [
   {
@@ -124,6 +133,7 @@ export const initialData: AppData = {
   locations,
   units,
   categories: defaultCategories,
+  inspection_types: defaultInspectionTypes,
   subcategories: defaultSubcategories,
   unit_categories: [],
   unit_subcategories: [],

@@ -83,6 +83,15 @@ export type Category = {
   updated_at: string;
 };
 
+export type InspectionType = {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Subcategory = {
   id: string;
   category_id: string;
@@ -125,6 +134,7 @@ export type Task = {
   priority: TaskPriority;
   assigned_to_user_id?: string;
   responsible_party_id?: string;
+  inspection_type_id?: string;
   created_by_user_id: string;
   due_date?: string;
   completed_at?: string;
@@ -197,6 +207,7 @@ export type AppData = {
   locations: Location[];
   units: Unit[];
   categories: Category[];
+  inspection_types: InspectionType[];
   subcategories: Subcategory[];
   unit_categories: UnitCategory[];
   unit_subcategories: UnitSubcategory[];

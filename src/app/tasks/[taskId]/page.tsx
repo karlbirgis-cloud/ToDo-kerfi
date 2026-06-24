@@ -24,6 +24,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
   const unit = data.units.find((item) => item.id === task.unit_id);
   const category = data.categories.find((item) => item.id === task.category_id);
   const subcategory = data.subcategories.find((item) => item.id === task.subcategory_id);
+  const inspectionType = data.inspection_types.find((item) => item.id === task.inspection_type_id);
   const responsiblePartyName = getTaskResponsiblePartyName(data, task);
   const creator = data.profiles.find((profile) => profile.id === task.created_by_user_id);
   const images = data.task_images.filter((image) => image.task_id === task.id);
@@ -71,6 +72,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
                   <StatusBadge status={task.status} />
                   <PriorityBadge priority={task.priority} />
                   <UserPill name={responsiblePartyName} />
+                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{inspectionType?.name ?? "Án tegundar"}</span>
                 </div>
                 <p className="mt-4 whitespace-pre-wrap text-slate-700">{task.description || "Engin lýsing skráð."}</p>
               </>
@@ -158,6 +160,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
             <Info label="Verkefni" value={project?.full_name} />
             <Info label="Gata" value={location?.name} />
             <Info label="Íbúð / rými" value={unit?.name} />
+            <Info label="Tegund úttektarlista" value={inspectionType?.name ?? "Án tegundar"} />
             <Info label="Stofnað af" value={creator?.name} />
             <Info label="Stofnað" value={formatDate(task.created_at)} />
             <Info label="Skiladagur" value={formatDate(task.due_date)} />
@@ -376,6 +379,11 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
       ? task.responsible_party_id
       : ""
   );
+  const [inspectionTypeId, setInspectionTypeId] = useState(
+    task.inspection_type_id && data.inspection_types.some((inspectionType) => inspectionType.id === task.inspection_type_id)
+      ? task.inspection_type_id
+      : ""
+  );
 
   return (
     <form
@@ -390,6 +398,7 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
           category_id: categoryId,
           subcategory_id: nextSubcategoryId,
           responsible_party_id: responsiblePartyId || undefined,
+          inspection_type_id: inspectionTypeId || undefined,
           assigned_to_user_id: undefined
         });
       }}
@@ -450,6 +459,20 @@ function TaskEditForm({ data, task, onSave, onCancel }: { data: AppData; task: T
         >
           <option value="">Óúthlutað</option>
           {data.responsible_parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
+        </select>
+      </label>
+      <label className="grid gap-1 text-sm font-semibold text-slate-700">
+        Tegund úttektarlista
+        <select
+          value={inspectionTypeId}
+          onChange={(event) => setInspectionTypeId(event.target.value)}
+          className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+        >
+          <option value="">Án tegundar</option>
+          {data.inspection_types
+            .filter((inspectionType) => inspectionType.is_active || inspectionType.id === task.inspection_type_id)
+            .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { sensitivity: "base" }))
+            .map((inspectionType) => <option key={inspectionType.id} value={inspectionType.id}>{inspectionType.name}</option>)}
         </select>
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">

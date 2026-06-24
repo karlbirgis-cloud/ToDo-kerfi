@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, FolderKanban, Layers3, MapPinned, Settings2, UsersRound } from "lucide-react";
+import { Building2, ClipboardList, FolderKanban, Layers3, MapPinned, Settings2, UsersRound } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, PageHeader } from "@/components/ui";
 import { useAppData } from "@/lib/data-provider";
@@ -11,6 +11,7 @@ const adminLinks = [
   { href: "/admin/locations", label: "Götur", icon: MapPinned },
   { href: "/admin/units", label: "Íbúðir / rými", icon: Layers3 },
   { href: "/admin/categories", label: "Flokkar", icon: Settings2 },
+  { href: "/admin/inspection-types", label: "Tegund úttektarlista", icon: ClipboardList },
   { href: "/admin/users", label: "Notendur", icon: UsersRound },
   { href: "/admin/responsible-parties", label: "Ábyrgðaraðilar", icon: Building2 }
 ];
@@ -20,7 +21,7 @@ export default function AdminPage() {
   return (
     <AppShell>
       <PageHeader title="Admin" kicker="Kerfisstillingar" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
         {adminLinks.map((item) => {
           const Icon = item.icon;
           return <Link key={item.href} href={item.href}><Card className="h-full transition hover:border-slate-400"><Icon className="mb-3 h-6 w-6 text-blueprint" /><h2 className="font-bold">{item.label}</h2></Card></Link>;

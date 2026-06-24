@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useAuth } from "./auth-provider";
 import { initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
-import type { AccessScope, AppData, Profile, ResponsibleParty, Task, TaskStatus, Unit, UnitType } from "./types";
+import type { AccessScope, AppData, InspectionType, Profile, ResponsibleParty, Task, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
 
 type NewProjectInput = { project_number: string; name: string };
@@ -13,8 +13,9 @@ type NewUnitInput = { project_id: string; location_id: string; name: string; uni
 type NewProfileInput = Pick<Profile, "name" | "email" | "role" | "company_id"> & Partial<Pick<Profile, "id" | "phone" | "work_scope" | "employer" | "access_scope" | "project_ids">>;
 type ProfilePatch = Partial<Pick<Profile, "name" | "email" | "phone" | "work_scope" | "employer" | "role" | "company_id" | "access_scope" | "project_ids">>;
 type NewResponsiblePartyInput = Pick<ResponsibleParty, "name"> & Partial<Pick<ResponsibleParty, "email" | "phone">>;
+type NewInspectionTypeInput = Pick<InspectionType, "name"> & Partial<Pick<InspectionType, "sort_order" | "is_active">>;
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
-  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "due_date">>;
+  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "inspection_type_id" | "due_date">>;
 type NewTaskPlanMarkerInput = { task_id: string; floor_plan_id: string; x_percent: number; y_percent: number };
 
 type DataContextValue = {
@@ -29,6 +30,8 @@ type DataContextValue = {
   updateProfile(profileId: string, patch: ProfilePatch): void;
   createResponsibleParty(input: NewResponsiblePartyInput): string;
   updateResponsibleParty(responsiblePartyId: string, patch: Partial<NewResponsiblePartyInput>): void;
+  createInspectionType(input: NewInspectionTypeInput): string;
+  updateInspectionType(inspectionTypeId: string, patch: Partial<NewInspectionTypeInput>): void;
   createTask(input: NewTaskInput): string;
   updateTask(taskId: string, patch: Partial<Task>): void;
   updateTaskStatus(taskId: string, status: TaskStatus): void;
@@ -57,6 +60,7 @@ function normalizeData(data: AppData): AppData {
   return {
     ...data,
     responsible_parties: data.responsible_parties ?? [],
+    inspection_types: data.inspection_types ?? initialData.inspection_types,
     floor_plans: data.floor_plans ?? [],
     task_plan_markers: data.task_plan_markers ?? [],
     profiles: data.profiles.map((profile) => ({
@@ -368,6 +372,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           Object.assign(responsibleParty, patch, { updated_at: todayIso() });
         });
       },
+      createInspectionType(input) {
+        const id = makeId("inspection_type");
+        update((draft) => {
+          const name = input.name.trim();
+          if (!name) return;
+          draft.inspection_types.push({
+            id,
+            name,
+            sort_order: input.sort_order ?? draft.inspection_types.length + 1,
+            is_active: input.is_active ?? true,
+            created_at: todayIso(),
+            updated_at: todayIso()
+          });
+        });
+        return id;
+      },
+      updateInspectionType(inspectionTypeId, patch) {
+        update((draft) => {
+          const inspectionType = draft.inspection_types.find((item) => item.id === inspectionTypeId);
+          if (!inspectionType) return;
+          if (typeof patch.name === "string") {
+            const name = patch.name.trim();
+            if (name) inspectionType.name = name;
+          }
+          if (typeof patch.sort_order === "number") inspectionType.sort_order = patch.sort_order;
+          if (typeof patch.is_active === "boolean") inspectionType.is_active = patch.is_active;
+          inspectionType.updated_at = todayIso();
+        });
+      },
       createTask(input) {
         const id = makeId("task");
         update((draft) => {
@@ -385,6 +418,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             priority: input.priority ?? "medium",
             assigned_to_user_id: input.assigned_to_user_id,
             responsible_party_id: input.responsible_party_id,
+            inspection_type_id: input.inspection_type_id,
             created_by_user_id: currentUserId,
             due_date: input.due_date,
             created_at: todayIso(),

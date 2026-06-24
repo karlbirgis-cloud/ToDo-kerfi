@@ -31,6 +31,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [responsiblePartyId, setResponsiblePartyId] = useState("");
+  const [inspectionTypeId, setInspectionTypeId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [zoom, setZoom] = useState(1);
   const existingMarkers = data.task_plan_markers.filter((item) => item.floor_plan_id === floorPlanId);
@@ -69,6 +70,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
                 title: title.trim(),
                 description: description.trim(),
                 responsible_party_id: responsiblePartyId || undefined,
+                inspection_type_id: inspectionTypeId || undefined,
                 priority
               });
               createTaskPlanMarker({ task_id: taskId, floor_plan_id: floorPlan.id, x_percent: marker.x, y_percent: marker.y });
@@ -93,6 +95,7 @@ export default function FloorPlanPage({ params }: { params: Promise<{ projectId:
               <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
             </label>
             <SelectField label="Úthlutun á" value={responsiblePartyId} onChange={setResponsiblePartyId} options={[{ value: "", label: "Óúthlutað" }, ...data.responsible_parties.map((party) => ({ value: party.id, label: party.name }))]} required={false} />
+            <SelectField label="Tegund úttektarlista" value={inspectionTypeId} onChange={setInspectionTypeId} options={[{ value: "", label: "Engin tegund" }, ...data.inspection_types.filter((inspectionType) => inspectionType.is_active).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { sensitivity: "base" })).map((inspectionType) => ({ value: inspectionType.id, label: inspectionType.name }))]} required={false} />
             <SelectField label="Forgangur" value={priority} onChange={(value) => setPriority(value as TaskPriority)} options={Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))} />
             <div className="flex items-end lg:col-span-2">
               <Button className="w-full" disabled={!canCreate}><Save className="h-4 w-4" /> Stofna atriði</Button>

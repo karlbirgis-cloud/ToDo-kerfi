@@ -6,7 +6,7 @@ import { Camera, Plus, Save, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "./ui";
 import { priorityLabels, statusLabels, unitTypeLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
-import type { FloorPlan, TaskPriority, TaskStatus, UnitType } from "@/lib/types";
+import type { FloorPlan, InspectionType, TaskPriority, TaskStatus, UnitType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function ProjectForm() {
@@ -89,6 +89,7 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
   const router = useRouter();
   const { data, createTask, flushPendingCloudSave } = useAppData();
   const [errorMessage, setErrorMessage] = useState("");
+  const inspectionTypeOptions = getInspectionTypeOptions(data.inspection_types);
   return (
     <form className="grid gap-3" onSubmit={async (event) => {
       event.preventDefault();
@@ -102,6 +103,7 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         title: String(form.get("title")),
         description: String(form.get("description") ?? ""),
         responsible_party_id: String(form.get("responsible_party_id") ?? ""),
+        inspection_type_id: String(form.get("inspection_type_id") ?? ""),
         priority: form.get("priority") as TaskPriority,
         due_date: String(form.get("due_date") ?? "")
       });
@@ -119,6 +121,7 @@ export function TaskForm({ projectId, locationId, unitId, categoryId, subcategor
         <textarea name="description" rows={4} className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20" />
       </label>
       <Select name="responsible_party_id" label="Úthluta á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.responsible_parties.map((party) => [party.id, party.name])) }} />
+      <Select name="inspection_type_id" label="Tegund úttektarlista" options={inspectionTypeOptions} />
       <Select name="priority" label="Forgangur" options={priorityLabels} />
       <Field name="due_date" type="date" label="Skiladagur" />
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
@@ -152,6 +155,7 @@ export function UnitTaskForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const inspectionTypeOptions = getInspectionTypeOptions(data.inspection_types);
   const projectFloorPlans = data.floor_plans
     .filter((plan) => plan.project_id === projectId)
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
@@ -196,6 +200,7 @@ export function UnitTaskForm({
             title: String(form.get("title")),
             description: String(form.get("description") ?? ""),
             responsible_party_id: String(form.get("responsible_party_id") ?? ""),
+            inspection_type_id: String(form.get("inspection_type_id") ?? ""),
             priority: "medium"
           });
           if (selectedFloorPlan && planMarker) {
@@ -247,6 +252,7 @@ export function UnitTaskForm({
       </label>
       <Select name="subcategory_id" label="Undirflokkur" options={Object.fromEntries(unitSubcategories.map((subcategory) => [subcategory.id, subcategory.name]))} required />
       <Select name="responsible_party_id" label="Úthlutun á" options={{ "": "Óúthlutað", ...Object.fromEntries(data.responsible_parties.map((party) => [party.id, party.name])) }} />
+      <Select name="inspection_type_id" label="Tegund úttektarlista" options={inspectionTypeOptions} />
       {projectFloorPlans.length > 0 ? (
         <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
           <div className="flex flex-wrap items-end gap-3">
@@ -392,6 +398,18 @@ function Select({ label, options, ...props }: React.SelectHTMLAttributes<HTMLSel
       </select>
     </label>
   );
+}
+
+function getInspectionTypeOptions(inspectionTypes: InspectionType[]) {
+  return {
+    "": "Engin tegund",
+    ...Object.fromEntries(
+      inspectionTypes
+        .filter((inspectionType) => inspectionType.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { sensitivity: "base" }))
+        .map((inspectionType) => [inspectionType.id, inspectionType.name])
+    )
+  };
 }
 
 function isPdfFloorPlan(plan: FloorPlan) {
