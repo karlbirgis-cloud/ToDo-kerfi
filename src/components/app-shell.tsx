@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
+  { href: "/safety-b25-27-29-31", label: "Öryggisúttekt B25-27 og 29-31", icon: ClipboardCheck },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/inspection", label: "Úttekt", icon: ClipboardCheck },
   { href: "/reports", label: "Skýrslur", icon: FileText },
@@ -21,7 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { session, user, isLoading, signOut } = useAuth();
   const isLogin = pathname === "/login";
-  const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports");
+  const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports") || pathname.startsWith("/safety-b25-27-29-31");
 
   useEffect(() => {
     if (isLogin) return;
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className={cn("mx-auto px-4 py-5 sm:py-8", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-7 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-8 border-t border-slate-200 bg-white md:hidden">
         {nav.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
