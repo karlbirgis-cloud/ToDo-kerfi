@@ -8,7 +8,7 @@ import type { AppData, Task, TaskStatus } from "@/lib/types";
 import { cn, getTaskResponsiblePartyName } from "@/lib/utils";
 
 const PROJECT_NAME = "Bryggjuhverfi";
-const LOCATION_NAMES = ["Buðlabryggja 25-27", "Buðlabryggja 29-31", "Buðlabryggja 29-37"];
+const LOCATION_NAMES = ["Buðlabryggja 25-27", "Buðlabryggja 29-31"];
 const INSPECTION_TYPE_NAME = "Öryggisúttekt";
 
 export default function SafetyB25Page() {
