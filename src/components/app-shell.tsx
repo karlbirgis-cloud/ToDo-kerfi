@@ -8,13 +8,13 @@ import { useAuth } from "@/lib/auth-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/safety-b25-27-29-31", label: "Öryggisúttekt B25-27 og 29-31", icon: ClipboardCheck },
-  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { href: "/inspection", label: "Úttekt", icon: ClipboardCheck },
-  { href: "/reports", label: "Skýrslur", icon: FileText },
-  { href: "/projects", label: "Verkefni", icon: FolderKanban },
-  { href: "/my-tasks", label: "Mín atriði", icon: UserCheck },
-  { href: "/admin", label: "Admin", icon: ShieldCheck }
+  { href: "/safety-b25-27-29-31", label: "Öryggisúttekt B25-27 og 29-31", mobileLabel: "Öryggi", icon: ClipboardCheck },
+  { href: "/dashboard", label: "Dashboard", mobileLabel: "Yfirlit", icon: BarChart3 },
+  { href: "/inspection", label: "Úttekt", mobileLabel: "Úttekt", icon: ClipboardCheck },
+  { href: "/reports", label: "Skýrslur", mobileLabel: "Skýrslur", icon: FileText },
+  { href: "/projects", label: "Verkefni", mobileLabel: "Verkefni", icon: FolderKanban },
+  { href: "/my-tasks", label: "Mín atriði", mobileLabel: "Mín atriði", icon: UserCheck },
+  { href: "/admin", label: "Admin", mobileLabel: "Admin", icon: ShieldCheck }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -72,27 +72,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className={cn("mx-auto px-4 py-5 sm:py-8", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-8 border-t border-slate-200 bg-white md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-30 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] md:hidden"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+      >
         {nav.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-semibold text-slate-600", active && "text-blueprint")}>
-              <Icon className="h-5 w-5" /> {item.label}
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-label={item.label}
+              title={item.label}
+              className={cn(
+                "flex min-w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold leading-tight text-slate-600",
+                active && "bg-blueprint/10 text-blueprint"
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="max-w-full truncate whitespace-nowrap">{item.mobileLabel}</span>
             </Link>
           );
         })}
         <button
-          className="flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-semibold text-slate-600"
+          className="flex min-w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold leading-tight text-slate-600"
           onClick={async () => {
             await signOut();
             router.replace("/login");
           }}
         >
-          <LogOut className="h-5 w-5" /> Útskrá
+          <LogOut className="h-5 w-5 shrink-0" />
+          <span className="max-w-full truncate whitespace-nowrap">Útskrá</span>
         </button>
       </nav>
-      <div className="h-16 md:hidden" />
+      <div className="h-24 md:hidden" />
     </div>
   );
 }
