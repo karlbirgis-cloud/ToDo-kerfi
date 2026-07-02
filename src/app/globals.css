@@ -34,7 +34,13 @@ textarea {
 }
 
 .print-only {
-  display: none;
+  display: block;
+  left: -100000px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  visibility: hidden;
+  width: 794px;
 }
 
 @media print {
@@ -55,6 +61,11 @@ textarea {
 
   .print-report {
     display: block !important;
+    left: auto !important;
+    pointer-events: auto !important;
+    position: static !important;
+    visibility: visible !important;
+    width: auto !important;
     box-shadow: none !important;
     border: 0 !important;
   }

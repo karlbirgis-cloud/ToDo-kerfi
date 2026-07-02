@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button, Card, PageHeader, UserPill } from "@/components/ui";
@@ -26,9 +26,40 @@ export default function SafetyB25Page() {
   const [printGroup, setPrintGroup] = useState<PrintGroup | null>(null);
   const tasks = getSafetyTasks(data);
 
+  useEffect(() => {
+    if (!printGroup) return;
+
+    let isCancelled = false;
+
+    async function printWhenReady() {
+      await waitForNextFrame();
+      await waitForNextFrame();
+
+      const report = document.querySelector(".print-report");
+      const images = Array.from(report?.querySelectorAll("img") ?? []);
+      await Promise.all(images.map(waitForImage));
+
+      if (!isCancelled) window.print();
+    }
+
+    printWhenReady();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [printGroup]);
+
+  useEffect(() => {
+    function clearPrintGroup() {
+      setPrintGroup(null);
+    }
+
+    window.addEventListener("afterprint", clearPrintGroup);
+    return () => window.removeEventListener("afterprint", clearPrintGroup);
+  }, []);
+
   function printTasks(group: PrintGroup) {
     setPrintGroup(group);
-    window.setTimeout(() => window.print(), 50);
   }
 
   return (
@@ -420,4 +451,28 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dd className="mt-0.5 font-bold text-slate-800">{value}</dd>
     </div>
   );
+}
+
+function waitForNextFrame() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
+function waitForImage(image: HTMLImageElement) {
+  if (image.complete) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    const timeout = window.setTimeout(done, 5000);
+
+    function done() {
+      window.clearTimeout(timeout);
+      image.removeEventListener("load", done);
+      image.removeEventListener("error", done);
+      resolve();
+    }
+
+    image.addEventListener("load", done);
+    image.addEventListener("error", done);
+  });
 }
