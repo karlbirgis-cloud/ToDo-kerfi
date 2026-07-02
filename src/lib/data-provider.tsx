@@ -17,10 +17,17 @@ type NewInspectionTypeInput = Pick<InspectionType, "name"> & Partial<Pick<Inspec
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
   Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "inspection_type_id" | "due_date">>;
 type NewTaskPlanMarkerInput = { task_id: string; floor_plan_id: string; x_percent: number; y_percent: number };
+type SyncState = {
+  isOnline: boolean;
+  isSyncing: boolean;
+  hasPendingChanges: boolean;
+  lastError?: string;
+};
 
 type DataContextValue = {
   data: AppData;
   currentUserId: string;
+  syncState: SyncState;
   createProject(input: NewProjectInput): string;
   createLocation(input: NewLocationInput): string;
   createUnit(input: NewUnitInput): string;
@@ -44,11 +51,85 @@ type DataContextValue = {
   addFloorPlan(projectId: string, name: string, file: File): Promise<string>;
   createTaskPlanMarker(input: NewTaskPlanMarkerInput): string;
   flushPendingCloudSave(): Promise<void>;
+  retrySync(): Promise<void>;
   resetDemoData(): void;
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
 const storageKey = "todo-kerfi-bryggjuhverfi-data-v3";
+const pendingCloudSaveKey = "todo-kerfi-bryggjuhverfi-pending-cloud-save";
+const pendingTaskImagePathPrefix = "pending/task-images";
+
+function readPendingCloudSave() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(pendingCloudSaveKey) === "true";
+}
+
+function writeLocalData(data: AppData) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(data));
+  } catch (error) {
+    console.error("Could not write local app data.", error);
+  }
+}
+
+function writePendingCloudSave(hasPendingChanges: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(pendingCloudSaveKey, String(hasPendingChanges));
+  } catch (error) {
+    console.error("Could not write pending cloud-save flag.", error);
+  }
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function fileToDataUrl(file: File) {
+  const dataUrl = await readFileAsDataUrl(file);
+  if (!file.type.startsWith("image/")) return dataUrl;
+
+  return new Promise<string>((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSize = 1600;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
+}
+
+function dataUrlToFile(dataUrl: string, fileName: string, mimeType?: string) {
+  const [header, base64] = dataUrl.split(",");
+  const detectedMimeType = mimeType ?? header.match(/data:(.*?);base64/)?.[1] ?? "application/octet-stream";
+  const binary = window.atob(base64 ?? "");
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new File([bytes], fileName, { type: detectedMimeType });
+}
+
+function getDataUrlMimeType(dataUrl: string) {
+  return dataUrl.match(/data:(.*?);base64/)?.[1] ?? "application/octet-stream";
+}
+
+function isPendingTaskImage(image: { storage_path: string; image_url: string; sync_status?: string }) {
+  return image.sync_status === "pending_upload" || image.storage_path.startsWith(`${pendingTaskImagePathPrefix}/`) || image.image_url.startsWith("data:");
+}
 
 function hydrateData(): AppData {
   if (typeof window === "undefined") return initialData;
@@ -117,6 +198,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { session, user, isLoading: isAuthLoading } = useAuth();
   const [data, setData] = useState<AppData>(initialData);
   const [persistenceMode, setPersistenceMode] = useState<"cloud" | "local">(hasSupabaseEnv ? "cloud" : "local");
+  const [syncState, setSyncState] = useState<SyncState>({
+    isOnline: typeof navigator === "undefined" ? true : navigator.onLine,
+    isSyncing: false,
+    hasPendingChanges: readPendingCloudSave()
+  });
   const dataRef = useRef<AppData>(initialData);
   const pendingCloudSaveRef = useRef<Promise<void>>(Promise.resolve());
   const accessToken = session?.access_token;
@@ -131,28 +217,88 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const scopedData = getScopedData(data, currentProfile);
   const useCloudData = hasSupabaseEnv;
 
+  const uploadPendingTaskImages = useCallback(async (nextData: AppData) => {
+    const draft = structuredClone(nextData);
+    const pendingImages = draft.task_images.filter(isPendingTaskImage);
+    for (const image of pendingImages) {
+      if (!image.image_url.startsWith("data:")) continue;
+
+      const file = dataUrlToFile(image.image_url, image.local_file_name ?? "mynd.jpg", image.mime_type);
+      const formData = new FormData();
+      formData.set("taskId", image.task_id);
+      formData.append("files", file);
+
+      const response = await fetch("/api/task-images", {
+        method: "POST",
+        body: formData
+      });
+      if (!response.ok) throw new Error("Image upload failed.");
+
+      const payload = (await response.json()) as { images: Array<{ image_url: string; storage_path: string }> };
+      const uploadedImage = payload.images[0];
+      if (!uploadedImage) throw new Error("Image upload failed.");
+
+      image.image_url = uploadedImage.image_url;
+      image.storage_path = uploadedImage.storage_path;
+      image.sync_status = "synced";
+      delete image.local_file_name;
+      delete image.mime_type;
+    }
+    return draft;
+  }, []);
+
+  const syncCloudSnapshot = useCallback(async () => {
+    if (!useCloudData || !accessToken) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("Engin nettenging.");
+
+    setSyncState((current) => ({ ...current, isOnline: true, isSyncing: true, lastError: undefined }));
+    const nextData = await uploadPendingTaskImages(dataRef.current);
+    const response = await fetch("/api/app-data", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ data: nextData })
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Cloud data could not be saved.");
+    }
+
+    dataRef.current = nextData;
+    setData(nextData);
+    writeLocalData(nextData);
+    writePendingCloudSave(false);
+    setSyncState((current) => ({ ...current, isOnline: true, isSyncing: false, hasPendingChanges: false, lastError: undefined }));
+  }, [accessToken, uploadPendingTaskImages, useCloudData]);
+
   const persistCloudData = useCallback((nextData: AppData) => {
+    writeLocalData(nextData);
+    writePendingCloudSave(true);
+    setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
+
     pendingCloudSaveRef.current = pendingCloudSaveRef.current
       .catch(() => undefined)
       .then(async () => {
-        const response = await fetch("/api/app-data", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken ?? ""}`
-          },
-          body: JSON.stringify({ data: nextData })
-        });
-
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null) as { error?: string } | null;
-          throw new Error(payload?.error ?? "Cloud data could not be saved.");
-        }
+        dataRef.current = nextData;
+        await syncCloudSnapshot();
+      })
+      .catch((error) => {
+        console.error(error);
+        writePendingCloudSave(true);
+        setSyncState((current) => ({
+          ...current,
+          isOnline: typeof navigator === "undefined" ? current.isOnline : navigator.onLine,
+          isSyncing: false,
+          hasPendingChanges: true,
+          lastError: error instanceof Error ? error.message : "Samstilling mistókst."
+        }));
       });
 
-    pendingCloudSaveRef.current.catch((error) => console.error(error));
     return pendingCloudSaveRef.current;
-  }, [accessToken]);
+  }, [syncCloudSnapshot]);
 
   useEffect(() => {
     let isMounted = true;
@@ -178,6 +324,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (readPendingCloudSave()) {
+        if (isMounted) {
+          const nextData = hydrateData();
+          dataRef.current = nextData;
+          setData(nextData);
+          setPersistenceMode("cloud");
+          setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
+        }
+        pendingCloudSaveRef.current = pendingCloudSaveRef.current
+          .catch(() => undefined)
+          .then(() => syncCloudSnapshot())
+          .catch((error) => {
+            console.error(error);
+            setSyncState((current) => ({
+              ...current,
+              isSyncing: false,
+              hasPendingChanges: true,
+              lastError: error instanceof Error ? error.message : "Samstilling mistókst."
+            }));
+          });
+        return;
+      }
+
       try {
         const response = await fetch("/api/app-data", {
           cache: "no-store",
@@ -197,7 +366,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           const nextData = hydrateData();
           dataRef.current = nextData;
           setData(nextData);
-          setPersistenceMode("local");
+          setPersistenceMode(useCloudData && accessToken ? "cloud" : "local");
+          setSyncState((current) => ({
+            ...current,
+            isOnline: typeof navigator === "undefined" ? current.isOnline : navigator.onLine,
+            hasPendingChanges: readPendingCloudSave(),
+            lastError: "Náði ekki sambandi við netþjón. Nota vistuð gögn úr tækinu."
+          }));
         }
       }
     }
@@ -207,7 +382,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, isAuthLoading, session, useCloudData]);
+  }, [accessToken, isAuthLoading, session, syncCloudSnapshot, useCloudData]);
+
+  useEffect(() => {
+    function handleOnline() {
+      setSyncState((current) => ({ ...current, isOnline: true }));
+      if (readPendingCloudSave()) {
+        pendingCloudSaveRef.current = pendingCloudSaveRef.current
+          .catch(() => undefined)
+          .then(() => syncCloudSnapshot())
+          .catch((error) => {
+            console.error(error);
+            setSyncState((current) => ({
+              ...current,
+              isSyncing: false,
+              hasPendingChanges: true,
+              lastError: error instanceof Error ? error.message : "Samstilling mistókst."
+            }));
+          });
+      }
+    }
+
+    function handleOffline() {
+      setSyncState((current) => ({ ...current, isOnline: false, isSyncing: false }));
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [syncCloudSnapshot]);
 
   const value = useMemo<DataContextValue>(() => {
     function createDefaultStructureForUnit(nextData: AppData, unitId: string) {
@@ -240,9 +446,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       mutator(draft);
       dataRef.current = draft;
       setData(draft);
+      writeLocalData(draft);
 
       if (persistenceMode === "local") {
-        if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(draft));
+        writePendingCloudSave(false);
       } else {
         persistCloudData(draft);
       }
@@ -251,6 +458,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return {
       data: scopedData,
       currentUserId,
+      syncState,
       createProject(input) {
         const id = makeId("project");
         update((draft) => {
@@ -489,29 +697,57 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (fileList.length === 0) return;
 
         if (persistenceMode === "cloud") {
-          const formData = new FormData();
-          formData.set("taskId", taskId);
-          fileList.forEach((file) => formData.append("files", file));
+          try {
+            if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("Engin nettenging.");
 
-          const response = await fetch("/api/task-images", {
-            method: "POST",
-            body: formData
-          });
-          if (!response.ok) throw new Error("Image upload failed.");
+            const formData = new FormData();
+            formData.set("taskId", taskId);
+            fileList.forEach((file) => formData.append("files", file));
 
-          const payload = (await response.json()) as { images: Array<{ image_url: string; storage_path: string }> };
-          update((draft) => {
-            payload.images.forEach((image) => {
-              draft.task_images.push({
-                id: makeId("image"),
-                task_id: taskId,
-                image_url: image.image_url,
-                storage_path: image.storage_path,
-                uploaded_by_user_id: currentUserId,
-                created_at: todayIso()
+            const response = await fetch("/api/task-images", {
+              method: "POST",
+              body: formData
+            });
+            if (!response.ok) throw new Error("Image upload failed.");
+
+            const payload = (await response.json()) as { images: Array<{ image_url: string; storage_path: string }> };
+            update((draft) => {
+              payload.images.forEach((image) => {
+                draft.task_images.push({
+                  id: makeId("image"),
+                  task_id: taskId,
+                  image_url: image.image_url,
+                  storage_path: image.storage_path,
+                  uploaded_by_user_id: currentUserId,
+                  created_at: todayIso(),
+                  sync_status: "synced"
+                });
               });
             });
-          });
+            return;
+          } catch (error) {
+            console.error(error);
+            const pendingImages = await Promise.all(fileList.map(async (file) => ({
+              file,
+              dataUrl: await fileToDataUrl(file)
+            })));
+
+            update((draft) => {
+              pendingImages.forEach(({ file, dataUrl }) => {
+                draft.task_images.push({
+                  id: makeId("image"),
+                  task_id: taskId,
+                  image_url: dataUrl,
+                  storage_path: `${pendingTaskImagePathPrefix}/${taskId}/${makeId("upload")}-${file.name}`,
+                  uploaded_by_user_id: currentUserId,
+                  created_at: todayIso(),
+                  sync_status: "pending_upload",
+                  local_file_name: file.name,
+                  mime_type: getDataUrlMimeType(dataUrl)
+                });
+              });
+            });
+          }
           return;
         }
 
@@ -532,7 +768,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const image = dataRef.current.task_images.find((item) => item.id === imageId);
         if (!image) return;
 
-        if (persistenceMode === "cloud") {
+        if (persistenceMode === "cloud" && !isPendingTaskImage(image)) {
           const response = await fetch("/api/task-images", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -614,17 +850,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       async flushPendingCloudSave() {
         await pendingCloudSaveRef.current;
       },
+      async retrySync() {
+        if (!useCloudData || !accessToken) return;
+        pendingCloudSaveRef.current = pendingCloudSaveRef.current
+          .catch(() => undefined)
+          .then(() => syncCloudSnapshot())
+          .catch((error) => {
+            console.error(error);
+            setSyncState((current) => ({
+              ...current,
+              isSyncing: false,
+              hasPendingChanges: true,
+              lastError: error instanceof Error ? error.message : "Samstilling mistókst."
+            }));
+          });
+        await pendingCloudSaveRef.current;
+      },
       resetDemoData() {
         dataRef.current = initialData;
         setData(initialData);
+        writeLocalData(initialData);
         if (persistenceMode === "local") {
-          if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(initialData));
+          writePendingCloudSave(false);
+          setSyncState((current) => ({ ...current, hasPendingChanges: false, lastError: undefined }));
         } else {
           persistCloudData(initialData);
         }
       }
     };
-  }, [currentUserId, scopedData, persistenceMode, persistCloudData]);
+  }, [accessToken, currentUserId, scopedData, persistenceMode, persistCloudData, syncCloudSnapshot, syncState, useCloudData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

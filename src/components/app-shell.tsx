@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, ClipboardCheck, FileText, FolderKanban, HardHat, Home, LogOut, Menu, ShieldCheck, UserCheck } from "lucide-react";
+import { BarChart3, CheckCircle2, ClipboardCheck, CloudOff, FileText, FolderKanban, HardHat, Home, Loader2, LogOut, Menu, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-provider";
+import { useAppData } from "@/lib/data-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -21,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { session, user, isLoading, signOut } = useAuth();
+  const { syncState, retrySync } = useAppData();
   const isLogin = pathname === "/login";
   const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports") || pathname.startsWith("/safety-b25-27-29-31");
 
@@ -71,6 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Menu className="h-6 w-6 text-slate-500 md:hidden" />
         </div>
       </header>
+      <SyncBanner syncState={syncState} onRetry={retrySync} />
       <main className={cn("mx-auto px-4 py-5 sm:py-8", isWidePage ? "max-w-[1600px]" : "max-w-7xl")}>{children}</main>
       <nav
         className="fixed bottom-0 left-0 right-0 z-30 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] md:hidden"
@@ -107,6 +110,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </nav>
       <div className="h-24 md:hidden" />
+    </div>
+  );
+}
+
+function SyncBanner({ syncState, onRetry }: { syncState: ReturnType<typeof useAppData>["syncState"]; onRetry: () => Promise<void> }) {
+  if (!syncState.hasPendingChanges && syncState.isOnline && !syncState.isSyncing) return null;
+
+  const tone = syncState.isOnline ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-300 bg-slate-900 text-white";
+  const Icon = syncState.isSyncing ? Loader2 : syncState.hasPendingChanges ? CloudOff : CheckCircle2;
+  const message = syncState.isSyncing
+    ? "Samstilli breytingar..."
+    : syncState.hasPendingChanges
+      ? syncState.isOnline
+        ? "Breytingar vistaðar í tækinu. Bíð eftir samstillingu."
+        : "Engin nettenging. Breytingar vistast í tækinu."
+      : "Allt samstillt.";
+
+  return (
+    <div className={cn("border-b px-4 py-2 text-sm font-semibold", tone)}>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon className={cn("h-4 w-4 shrink-0", syncState.isSyncing && "animate-spin")} />
+          <span>{message}</span>
+        </span>
+        {syncState.hasPendingChanges && syncState.isOnline && !syncState.isSyncing ? (
+          <button className="rounded-md bg-white/80 px-3 py-1 text-xs font-bold text-slate-900 ring-1 ring-black/10" onClick={() => void onRetry()}>
+            Reyna aftur
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

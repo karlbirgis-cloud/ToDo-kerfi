@@ -149,6 +149,9 @@ export type TaskImage = {
   storage_path: string;
   uploaded_by_user_id: string;
   created_at: string;
+  sync_status?: "pending_upload" | "synced";
+  local_file_name?: string;
+  mime_type?: string;
 };
 
 export type FloorPlan = {
