@@ -305,36 +305,37 @@ function PrintableGroup({ group, data }: { group: PrintGroup; data: AppData }) {
           const row = getTaskRow(task, data);
           const images = data.task_images.filter((image) => image.task_id === task.id);
           return (
-            <article key={task.id} className="print-break-inside-avoid overflow-hidden rounded-md border border-slate-300 bg-white">
-              <div className="border-l-4 border-l-blue-600 p-4">
+            <article key={task.id} className="print-break-inside-avoid bg-white">
+              <div className="min-h-[360px] border-l-4 border-l-blue-600 px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Atriði {index + 1}</p>
                     <h2 className="mt-1 text-xl font-bold text-ink">{task.title}</h2>
                   </div>
-                  <span className="shrink-0 rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">{statusLabels[task.status]}</span>
+                  <span className="shrink-0 rounded-full border border-blue-100 bg-white px-3 py-1 text-xs font-bold text-slate-700 shadow-sm">{statusLabels[task.status]}</span>
                 </div>
 
-                <div className="mt-4 grid gap-3 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-3">
-                  <PrintDetail label="Íbúð / rými" value={row.unit} />
-                  <PrintDetail label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} />
-                  <PrintDetail label="Myndir" value={`${images.length}`} />
-                </div>
+                <div className="mt-4 grid gap-5 text-sm sm:grid-cols-[190px_1fr]">
+                  <div className="border border-slate-900">
+                    <PrintBoxRow label="Íbúð / rými" value={row.unit} />
+                    <PrintBoxRow label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} />
+                  </div>
 
-                <div className="mt-4 text-sm">
-                  <p className="font-bold text-slate-900">Lýsing</p>
-                  <p className="mt-1 whitespace-pre-wrap leading-6 text-slate-700">{task.description || "Engin lýsing skráð."}</p>
+                  <div className="min-h-16 border border-slate-900 px-3 py-2">
+                    <p className="font-bold text-slate-900">Lýsing</p>
+                    <p className="mt-1 whitespace-pre-wrap leading-6 text-slate-700">{task.description || "Engin lýsing skráð."}</p>
+                  </div>
                 </div>
 
                 {images.length > 0 ? (
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm font-bold text-slate-900">Myndir</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="mt-7">
+                    <p className="mb-3 text-base font-bold text-slate-900">Myndir</p>
+                    <div className="grid gap-5 sm:grid-cols-2">
                       {images.map((image, imageIndex) => (
-                        <figure key={image.id} className="overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                        <figure key={image.id} className="w-52">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={image.image_url} alt={`Mynd ${imageIndex + 1} fyrir ${task.title}`} className="h-56 w-full object-contain" />
-                          <figcaption className="border-t border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">Mynd {imageIndex + 1}</figcaption>
+                          <img src={image.image_url} alt={`Mynd ${imageIndex + 1} fyrir ${task.title}`} className="h-48 w-48 object-contain" />
+                          <figcaption className="mt-2 px-3 text-xs font-semibold text-slate-600">Mynd {imageIndex + 1}</figcaption>
                         </figure>
                       ))}
                     </div>
@@ -353,6 +354,15 @@ function PrintDetail({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="font-semibold text-slate-500">{label}</dt>
       <dd className="mt-0.5 font-bold text-slate-800">{value}</dd>
+    </div>
+  );
+}
+
+function PrintBoxRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-3 px-2 py-2 text-sm leading-tight [&+&]:border-t [&+&]:border-slate-900">
+      <dt className="font-bold text-slate-700">{label}</dt>
+      <dd className="font-bold text-slate-900">{value}</dd>
     </div>
   );
 }
