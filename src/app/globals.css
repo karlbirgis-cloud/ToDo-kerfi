@@ -33,6 +33,10 @@ textarea {
   min-height: 44px;
 }
 
+.print-only {
+  display: none;
+}
+
 @media print {
   body {
     background: #ffffff !important;
@@ -50,6 +54,7 @@ textarea {
   }
 
   .print-report {
+    display: block !important;
     box-shadow: none !important;
     border: 0 !important;
   }
