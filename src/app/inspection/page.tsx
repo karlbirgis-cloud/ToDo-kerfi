@@ -130,7 +130,7 @@ export default function InspectionPage() {
                 <h2 className="mb-4 flex items-center gap-2 font-bold text-ink">
                   <ClipboardCheck className="h-4 w-4" /> Skrá nýtt atriði
                 </h2>
-                <UnitTaskForm key={unit.id} projectId={projectId} locationId={locationId} unitId={unit.id} submitMode="stay" />
+                <UnitTaskForm projectId={projectId} locationId={locationId} unitId={unit.id} submitMode="stay" />
               </Card>
 
               <section>

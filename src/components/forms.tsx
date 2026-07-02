@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Camera, Plus, Save, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "./ui";
 import { priorityLabels, statusLabels, unitTypeLabels } from "@/lib/labels";
@@ -161,17 +161,27 @@ export function UnitTaskForm({
     .sort((a, b) => a.name.localeCompare(b.name, "is", { sensitivity: "base", numeric: true }));
   const selectedFloorPlan = projectFloorPlans.find((plan) => plan.id === selectedFloorPlanId);
   const selectedFloorPlanIsPdf = selectedFloorPlan ? isPdfFloorPlan(selectedFloorPlan) : false;
-  const unitCategories = data.unit_categories
+  const unitCategories = useMemo(() => data.unit_categories
     .filter((item) => item.unit_id === unitId)
     .map((item) => data.categories.find((category) => category.id === item.category_id))
     .filter((category): category is NonNullable<typeof category> => Boolean(category))
-    .sort((a, b) => a.sort_order - b.sort_order);
+    .sort((a, b) => a.sort_order - b.sort_order), [data.categories, data.unit_categories, unitId]);
   const [categoryId, setCategoryId] = useState(unitCategories[0]?.id ?? "");
-  const unitSubcategories = data.unit_subcategories
+  const unitSubcategories = useMemo(() => data.unit_subcategories
     .filter((item) => item.unit_id === unitId && item.category_id === categoryId)
     .map((item) => data.subcategories.find((subcategory) => subcategory.id === item.subcategory_id))
     .filter((subcategory): subcategory is NonNullable<typeof subcategory> => Boolean(subcategory))
-    .sort((a, b) => a.sort_order - b.sort_order);
+    .sort((a, b) => a.sort_order - b.sort_order), [categoryId, data.subcategories, data.unit_subcategories, unitId]);
+
+  useEffect(() => {
+    if (unitCategories.length === 0) {
+      if (categoryId) setCategoryId("");
+      return;
+    }
+    if (!unitCategories.some((category) => category.id === categoryId)) {
+      setCategoryId(unitCategories[0].id);
+    }
+  }, [categoryId, unitCategories]);
 
   return (
     <form
