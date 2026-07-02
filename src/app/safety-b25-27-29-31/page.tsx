@@ -17,6 +17,7 @@ const INSPECTION_TYPE_NAME = "Öryggisúttekt";
 type PrintGroup = {
   categoryName?: string;
   locationName: string;
+  printId: number;
   subcategoryName: string;
   tasks: Task[];
 };
@@ -48,15 +49,6 @@ export default function SafetyB25Page() {
       isCancelled = true;
     };
   }, [printGroup]);
-
-  useEffect(() => {
-    function clearPrintGroup() {
-      setPrintGroup(null);
-    }
-
-    window.addEventListener("afterprint", clearPrintGroup);
-    return () => window.removeEventListener("afterprint", clearPrintGroup);
-  }, []);
 
   function printTasks(group: PrintGroup) {
     setPrintGroup(group);
@@ -173,6 +165,7 @@ function SubcategoryGroups({
                 onClick={() => onPrint({
                   categoryName: group.category?.name,
                   locationName,
+                  printId: Date.now(),
                   subcategoryName: group.subcategory.name,
                   tasks: group.tasks
                 })}
@@ -196,6 +189,7 @@ function SubcategoryGroups({
                 className="bg-blueprint hover:bg-blue-700"
                 onClick={() => onPrint({
                   locationName,
+                  printId: Date.now(),
                   subcategoryName: "Án undirflokks",
                   tasks: uncategorizedTasks
                 })}
