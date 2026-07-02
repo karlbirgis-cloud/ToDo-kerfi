@@ -8,7 +8,7 @@ import { Button, Card, PageHeader, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus } from "@/lib/types";
-import { cn, formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
+import { cn, getTaskResponsiblePartyName } from "@/lib/utils";
 
 const PROJECT_NAME = "Bryggjuhverfi";
 const LOCATION_NAMES = ["Buðlabryggja 25-27", "Buðlabryggja 29-31"];
@@ -288,36 +288,58 @@ function PrintableGroup({ group, data }: { group: PrintGroup; data: AppData }) {
   const generatedAt = new Intl.DateTimeFormat("is-IS", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
 
   return (
-    <section className="print-only print-report bg-white p-6 text-ink">
-      <div className="border-b border-slate-300 pb-4">
-        <p className="text-sm font-bold uppercase text-slate-500">PDF skýrsla</p>
-        <h1 className="mt-1 text-2xl font-bold">Öryggisúttekt B25-27 og 29-31</h1>
-        <p className="mt-2 text-sm text-slate-700">{group.locationName} · {group.subcategoryName}</p>
-        {group.categoryName ? <p className="mt-1 text-sm text-slate-600">Flokkur: {group.categoryName}</p> : null}
-        <p className="mt-1 text-sm text-slate-600">Útbúin: {generatedAt} · {group.tasks.length} atriði</p>
+    <section className="print-only print-report bg-white p-7 text-ink">
+      <div className="border-b-2 border-slate-900 pb-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">PDF skýrsla</p>
+        <h1 className="mt-1 text-3xl font-bold">Öryggisúttekt B25-27 og 29-31</h1>
+        <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+          <PrintDetail label="Gata" value={group.locationName} />
+          <PrintDetail label="Undirflokkur" value={group.subcategoryName} />
+          <PrintDetail label="Flokkur" value={group.categoryName ?? "-"} />
+          <PrintDetail label="Útbúin" value={`${generatedAt} · ${group.tasks.length} atriði`} />
+        </div>
       </div>
 
-      <div className="mt-5 grid gap-4">
+      <div className="mt-6 grid gap-5">
         {group.tasks.map((task, index) => {
           const row = getTaskRow(task, data);
+          const images = data.task_images.filter((image) => image.task_id === task.id);
           return (
-            <article key={task.id} className="print-break-inside-avoid rounded-md border border-slate-300 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-500">Atriði {index + 1}</p>
-                  <h2 className="mt-1 text-lg font-bold text-ink">{task.title}</h2>
+            <article key={task.id} className="print-break-inside-avoid overflow-hidden rounded-md border border-slate-300 bg-white">
+              <div className="border-l-4 border-l-blue-600 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Atriði {index + 1}</p>
+                    <h2 className="mt-1 text-xl font-bold text-ink">{task.title}</h2>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">{statusLabels[task.status]}</span>
                 </div>
-                <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-bold text-slate-700">{statusLabels[task.status]}</span>
-              </div>
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <PrintDetail label="Íbúð / rými" value={row.unit} />
-                <PrintDetail label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} />
-                <PrintDetail label="Stofnað" value={formatDate(task.created_at)} />
-                <PrintDetail label="Skiladagur" value={formatDate(task.due_date)} />
-              </dl>
-              <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
-                <p className="font-bold text-slate-900">Lýsing</p>
-                <p className="mt-1 whitespace-pre-wrap text-slate-700">{task.description || "Engin lýsing skráð."}</p>
+
+                <div className="mt-4 grid gap-3 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-3">
+                  <PrintDetail label="Íbúð / rými" value={row.unit} />
+                  <PrintDetail label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} />
+                  <PrintDetail label="Myndir" value={`${images.length}`} />
+                </div>
+
+                <div className="mt-4 text-sm">
+                  <p className="font-bold text-slate-900">Lýsing</p>
+                  <p className="mt-1 whitespace-pre-wrap leading-6 text-slate-700">{task.description || "Engin lýsing skráð."}</p>
+                </div>
+
+                {images.length > 0 ? (
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-bold text-slate-900">Myndir</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {images.map((image, imageIndex) => (
+                        <figure key={image.id} className="overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={image.image_url} alt={`Mynd ${imageIndex + 1} fyrir ${task.title}`} className="h-56 w-full object-contain" />
+                          <figcaption className="border-t border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">Mynd {imageIndex + 1}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </article>
           );
@@ -326,7 +348,6 @@ function PrintableGroup({ group, data }: { group: PrintGroup; data: AppData }) {
     </section>
   );
 }
-
 function PrintDetail({ label, value }: { label: string; value: string }) {
   return (
     <div>
