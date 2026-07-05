@@ -44,8 +44,16 @@ textarea {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
   body {
     background: #ffffff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   header,
@@ -65,9 +73,13 @@ textarea {
     pointer-events: auto !important;
     position: static !important;
     visibility: visible !important;
-    width: auto !important;
+    width: 100% !important;
     box-shadow: none !important;
     border: 0 !important;
+  }
+
+  .print-report img {
+    max-width: 100% !important;
   }
 
   .print-break-inside-avoid {

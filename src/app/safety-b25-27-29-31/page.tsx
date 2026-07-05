@@ -18,6 +18,7 @@ type PrintGroup = {
   categoryName?: string;
   locationName: string;
   printId: number;
+  printImageUrls?: Record<string, string>;
   subcategoryName: string;
   tasks: Task[];
 };
@@ -50,8 +51,9 @@ export default function SafetyB25Page() {
     };
   }, [printGroup]);
 
-  function printTasks(group: PrintGroup) {
-    setPrintGroup(group);
+  async function printTasks(group: PrintGroup) {
+    const printImageUrls = await createPrintImageUrls(group.tasks, data);
+    setPrintGroup({ ...group, printImageUrls });
   }
 
   return (
@@ -375,7 +377,12 @@ function PrintableGroup({ group, data }: { group: PrintGroup; data: AppData }) {
                       {images.map((image, imageIndex) => (
                         <figure key={image.id} className="w-52">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={image.image_url} alt={`Mynd ${imageIndex + 1} fyrir ${task.title}`} className="h-48 w-48 object-contain" />
+                          <img
+                            src={group.printImageUrls?.[image.id] ?? image.image_url}
+                            alt={`Mynd ${imageIndex + 1} fyrir ${task.title}`}
+                            className="h-48 w-48 object-contain"
+                            crossOrigin="anonymous"
+                          />
                           <figcaption className="mt-2 px-3 text-xs font-semibold text-slate-600">Mynd {imageIndex + 1}</figcaption>
                         </figure>
                       ))}
@@ -461,6 +468,50 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dd className="mt-0.5 font-bold text-slate-800">{value}</dd>
     </div>
   );
+}
+
+async function createPrintImageUrls(tasks: Task[], data: AppData) {
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const images = data.task_images.filter((image) => taskIds.has(image.task_id));
+  const entries = await Promise.all(
+    images.map(async (image) => {
+      const printUrl = await createPrintImageUrl(image.image_url);
+      return printUrl ? [image.id, printUrl] as const : null;
+    })
+  );
+
+  return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry)));
+}
+
+function createPrintImageUrl(imageUrl: string) {
+  return new Promise<string | null>((resolve) => {
+    const image = new Image();
+    const timeout = window.setTimeout(() => resolve(null), 8000);
+
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      window.clearTimeout(timeout);
+      try {
+        const maxSize = 900;
+        const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      } catch (error) {
+        console.error(error);
+        resolve(null);
+      }
+    };
+    image.onerror = () => {
+      window.clearTimeout(timeout);
+      resolve(null);
+    };
+    image.src = imageUrl;
+  });
 }
 
 function waitForNextFrame() {
