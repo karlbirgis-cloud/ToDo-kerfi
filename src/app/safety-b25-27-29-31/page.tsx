@@ -107,9 +107,25 @@ function LocationSections({ tasks, data, onPrint }: { tasks: Task[]; data: AppDa
 
         return (
           <section key={locationName} className="overflow-hidden rounded-md border border-slate-200 bg-white">
-            <div className="flex flex-col gap-1 border-b border-slate-100 bg-slate-900 px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-bold">{locationName}</h2>
-              <span className="text-sm font-semibold text-slate-200">{locationTasks.length} opin atriði</span>
+            <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-900 px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold">{locationName}</h2>
+                <p className="mt-0.5 text-sm font-semibold text-slate-200">{locationTasks.length} opin atriði</p>
+              </div>
+              <Button
+                type="button"
+                disabled={locationTasks.length === 0}
+                className="bg-white text-slate-900 hover:bg-slate-100 disabled:bg-white/60 disabled:text-slate-500"
+                onClick={() => onPrint({
+                  categoryName: "Allir flokkar",
+                  locationName,
+                  printId: Date.now(),
+                  subcategoryName: "Allir undirflokkar",
+                  tasks: locationTasks
+                })}
+              >
+                <Printer className="h-4 w-4" /> Prenta PDF
+              </Button>
             </div>
             <SubcategoryGroups tasks={locationTasks} data={data} locationName={locationName} onPrint={onPrint} />
           </section>
