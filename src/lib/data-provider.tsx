@@ -159,6 +159,13 @@ function normalizeData(data: AppData): AppData {
   ];
   const inspectionTemplates = data.inspection_templates ?? [];
   const inspectionChecklistItems = data.inspection_checklist_items ?? [];
+  const normalizedInspectionChecklistItems = [
+    ...inspectionChecklistItems.map((item) => {
+      const defaultItem = finalDeliveryChecklistItems.find((candidate) => candidate.id === item.id);
+      return defaultItem ? { ...item, ...defaultItem, created_at: item.created_at } : item;
+    }),
+    ...finalDeliveryChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
+  ];
 
   return {
     ...data,
@@ -167,10 +174,7 @@ function normalizeData(data: AppData): AppData {
     inspection_templates: inspectionTemplates.some((template) => template.id === finalDeliveryTemplate.id)
       ? inspectionTemplates
       : [...inspectionTemplates, finalDeliveryTemplate],
-    inspection_checklist_items: [
-      ...inspectionChecklistItems,
-      ...finalDeliveryChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
-    ],
+    inspection_checklist_items: normalizedInspectionChecklistItems,
     inspection_runs: data.inspection_runs ?? [],
     inspection_run_items: data.inspection_run_items ?? [],
     floor_plans: data.floor_plans ?? [],
