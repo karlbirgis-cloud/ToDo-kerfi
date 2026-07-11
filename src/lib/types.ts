@@ -92,6 +92,55 @@ export type InspectionType = {
   updated_at: string;
 };
 
+export type InspectionRunItemStatus = "unchecked" | "ok" | "issue" | "not_applicable";
+
+export type InspectionTemplate = {
+  id: string;
+  inspection_type_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InspectionChecklistItem = {
+  id: string;
+  template_id: string;
+  section: string;
+  title: string;
+  description: string;
+  category_id?: string;
+  subcategory_id?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InspectionRun = {
+  id: string;
+  inspection_type_id: string;
+  template_id: string;
+  project_id: string;
+  location_id: string;
+  unit_id: string;
+  started_by_user_id: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InspectionRunItem = {
+  id: string;
+  run_id: string;
+  checklist_item_id: string;
+  status: InspectionRunItemStatus;
+  task_id?: string;
+  checked_by_user_id?: string;
+  checked_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Subcategory = {
   id: string;
   category_id: string;
@@ -135,6 +184,7 @@ export type Task = {
   assigned_to_user_id?: string;
   responsible_party_id?: string;
   inspection_type_id?: string;
+  inspection_run_item_id?: string;
   created_by_user_id: string;
   due_date?: string;
   completed_at?: string;
@@ -211,6 +261,10 @@ export type AppData = {
   units: Unit[];
   categories: Category[];
   inspection_types: InspectionType[];
+  inspection_templates: InspectionTemplate[];
+  inspection_checklist_items: InspectionChecklistItem[];
+  inspection_runs: InspectionRun[];
+  inspection_run_items: InspectionRunItem[];
   subcategories: Subcategory[];
   unit_categories: UnitCategory[];
   unit_subcategories: UnitSubcategory[];

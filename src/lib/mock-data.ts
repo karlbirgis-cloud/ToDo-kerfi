@@ -1,4 +1,4 @@
-import type { AppData, Category, InspectionType, Location, Subcategory, Unit } from "./types";
+import type { AppData, Category, InspectionChecklistItem, InspectionTemplate, InspectionType, Location, Subcategory, Unit } from "./types";
 
 const now = new Date().toISOString();
 
@@ -47,11 +47,99 @@ export const defaultSubcategories: Subcategory[] = Object.entries(subcategoryGro
   }))
 );
 
-export const defaultInspectionTypes: InspectionType[] = ["Öryggisúttekt", "Lokaúttekt", "Afhending"].map((name, index) => ({
-  id: `inspection_type_${index + 1}`,
-  name,
+export const defaultInspectionTypes: InspectionType[] = [
+  { id: "inspection_type_1", name: "Öryggisúttekt" },
+  { id: "inspection_type_final_delivery", name: "Loka skoðun fyrir afhendingu" },
+  { id: "inspection_type_3", name: "Afhending" }
+].map((inspectionType, index) => ({
+  ...inspectionType,
   sort_order: index + 1,
   is_active: true,
+  created_at: now,
+  updated_at: now
+}));
+
+export const finalDeliveryTemplate: InspectionTemplate = {
+  id: "inspection_template_final_delivery",
+  inspection_type_id: "inspection_type_final_delivery",
+  name: "Loka skoðun fyrir afhendingu",
+  is_active: true,
+  created_at: now,
+  updated_at: now
+};
+
+const finalDeliveryChecklistSource = [
+  ["ANDYRI", "Útihurð", "Yfirborð hurðar, karms og þröskuldar er í lagi", "cat_5", "sub_cat_5_8"],
+  ["ANDYRI", "Skápar", "Yfirborð, bæði hurða og hliða er í lagi og allar hillur til staðar", "cat_5", "sub_cat_5_6"],
+  ["ANDYRI", "Pípulagnir", "Allir ofnar virka og eru í lagi", "cat_3", "sub_cat_3_1"],
+  ["ANDYRI", "Málning", "Áferð veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["ANDYRI", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["ANDYRI", "Slökkvitæki", "Er slökkvitæki til staðar í íbúðinni og uppsett.", "cat_6", "sub_cat_6_1"],
+  ["Almennt", "Hvítar búlur", "Eru komnar hvítar búlur á alla veggi bakvið hurðarhúna", "cat_5", "sub_cat_5_10"],
+  ["ELDHÚS", "Innréttingar", "Yfirborð, bæði hurða og hliða er í lagi og allar hillur til staðar.", "cat_5", "sub_cat_5_6"],
+  ["ELDHÚS", "Borðplata", "Yfirborð borðplötu og frágangur hennar er í lagi", "cat_5", "sub_cat_5_6"],
+  ["ELDHÚS", "Eldavél", "Eldavél tengd og útlitsgallar ekki sjáanlegir", "cat_6", "sub_cat_6_1"],
+  ["ELDHÚS", "Helluborð", "Helluborð tengt og útlitsgallar ekki sjáanlegir", "cat_6", "sub_cat_6_1"],
+  ["ELDHÚS", "Háfur", "Háfur tengdur og útlitsgallar ekki sjáanlegir", "cat_6", "sub_cat_6_1"],
+  ["ELDHÚS", "Loftljós", "Loftljós tengd og virka", "cat_4", "sub_cat_4_1"],
+  ["ELDHÚS", "Vaskur", "Vaskur er tengdur og útlitsgallar ekki sjáanlegir", "cat_3", "sub_cat_3_3"],
+  ["ELDHÚS", "Blöndunartæki", "Blöndunartæki eru tengd og tengingar frárennslis í lagi.", "cat_3", "sub_cat_3_3"],
+  ["ELDHÚS", "Uppþvottavél", "Vatnsinntak fyrir uppþvottavél í lagi.", "cat_3", "sub_cat_3_1"],
+  ["ELDHÚS", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["ELDHÚS", "Lækkun glugga", "Lækkun glugga í lagi", "cat_5", "sub_cat_5_10"],
+  ["ELDHÚS", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["STOFA", "Svalahurð", "Læsing og lamir á svalahurð eru í lagi og á henni hurðarpumpa.", "cat_5", "sub_cat_5_8"],
+  ["STOFA", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["STOFA", "Lækkun glugga", "Lækkun glugga í lagi", "cat_5", "sub_cat_5_10"],
+  ["STOFA", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["STOFA", "Opnanleg fög", "Lokun er í lagi.", "cat_7", "sub_cat_7_4"],
+  ["STOFA", "Reykskynjari", "Er reykskynjari til staðar.", "cat_6", "sub_cat_6_1"],
+  ["BAÐHERBERGI", "Gólfflísar", "Flísar heilar og fúgur í lagi.", "cat_5", "sub_cat_5_5"],
+  ["BAÐHERBERGI", "Niðurfall", "Vatnshalli réttur að gólfniðurfalli, niðurfallið hreint og ristin til staðar.", "cat_3", "sub_cat_3_1"],
+  ["BAÐHERBERGI", "Veggflísar", "Flísar heilar og fúgur í lagi.", "cat_5", "sub_cat_5_5"],
+  ["BAÐHERBERGI", "Innrétting", "Yfirborð innréttingar og frágangur hennar er í lagi.", "cat_5", "sub_cat_5_6"],
+  ["BAÐHERBERGI", "Spegill", "Spegill er í lagi", "cat_6", "sub_cat_6_1"],
+  ["BAÐHERBERGI", "Sturtugler", "Yfirborð sturtuglers og frágangur þess er í lagi.", "cat_5", "sub_cat_5_10"],
+  ["BAÐHERBERGI", "Vaskur", "Vaskur uppsettur, blöndunartæki virka og tengingar frárennslis í lagi.", "cat_3", "sub_cat_3_3"],
+  ["BAÐHERBERGI", "Sturta", "Sturta uppsett, blöndunartæki virka og tengingar frárennslis í lagi.", "cat_3", "sub_cat_3_3"],
+  ["BAÐHERBERGI", "Salerni", "Salerni uppsett og tengt og tengingar frárennslis í lagi", "cat_3", "sub_cat_3_3"],
+  ["BAÐHERBERGI", "Innihurð", "Yfirborð hurðar og karms er í lagi.", "cat_5", "sub_cat_5_8"],
+  ["BAÐHERBERGI", "Málning", "Málning veggja fyrir ofan flísar og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["BAÐHERBERGI", "Loftræsting", "Loftræstitúða uppsett og útsog komið í gang.", "cat_3", "sub_cat_3_2"],
+  ["BAÐHERBERGI", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["HERBERGI", "Fataskápar", "Yfirborð, bæði hurða og hliða er í lagi og allar hillur til staðar.", "cat_5", "sub_cat_5_6"],
+  ["HERBERGI", "Innihurðir", "Yfirborð hurða og karma er í lagi.", "cat_5", "sub_cat_5_8"],
+  ["HERBERGI", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["HERBERGI", "Lækkun glugga", "Lækkun glugga í lagi", "cat_5", "sub_cat_5_10"],
+  ["HERBERGI", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["HERBERGI", "Opnanleg fög", "Lokun er í lagi.", "cat_7", "sub_cat_7_4"],
+  ["ÞVOTTAHÚS", "Gólfflísar", "Flísar heilar og fúgur í lagi", "cat_5", "sub_cat_5_5"],
+  ["ÞVOTTAHÚS", "Niðurfall", "Vatnshalli réttur að gólfniðurfalli, niðurfallið hreint og ristin til staðar.", "cat_3", "sub_cat_3_1"],
+  ["ÞVOTTAHÚS", "Þvottavél", "Vatnsinntak og frárennsli fyrir þvottavél í lagi.", "cat_3", "sub_cat_3_1"],
+  ["ÞVOTTAHÚS", "Innihurð", "Áferð hurðar og karms er í lagi.", "cat_5", "sub_cat_5_8"],
+  ["ÞVOTTAHÚS", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
+  ["ÞVOTTAHÚS", "Loftræsting", "Loftræstitúða uppsett og útsog komið í gang.", "cat_3", "sub_cat_3_2"],
+  ["ÞVOTTAHÚS", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["ÞVOTTAHÚS", "Loftljós", "Loftljós tengd og virka", "cat_4", "sub_cat_4_1"],
+  ["ÞVOTTAHÚS", "Rafmagnstafla", "Frágangur rafmagnstöflu í lagi", "cat_4", "sub_cat_4_1"],
+  ["SVALIR", "Svalagólf", "Áferð svalagólfs er í lagi", "cat_7", "sub_cat_7_7"],
+  ["SVALIR", "Niðurfall", "Vatnshalli réttur að gólfniðurfalli, niðurfallið hreint og ristin til staðar.", "cat_3", "sub_cat_3_1"],
+  ["SVALIR", "Svalahandrið", "Frágangur svalahandriðs er í lagi.", "cat_7", "sub_cat_7_7"],
+  ["GEYMSLA OG SAMEIGN", "Geymsluhurð", "Áferð hurða, karma og þröskulda er í lagi.", "cat_5", "sub_cat_5_8"],
+  ["GEYMSLA OG SAMEIGN", "Almennur frágangur", "Almennur frágangur í samræmi við skilmála kaupsamnings.", "cat_5", "sub_cat_5_10"],
+  ["GEYMSLA OG SAMEIGN", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
+  ["GEYMSLA OG SAMEIGN", "Loftljós", "Loftljós tengd og virka", "cat_4", "sub_cat_4_1"]
+] as const;
+
+export const finalDeliveryChecklistItems: InspectionChecklistItem[] = finalDeliveryChecklistSource.map((item, index) => ({
+  id: `inspection_item_final_delivery_${index + 1}`,
+  template_id: finalDeliveryTemplate.id,
+  section: item[0],
+  title: item[1],
+  description: item[2],
+  category_id: item[3],
+  subcategory_id: item[4],
+  sort_order: index + 1,
   created_at: now,
   updated_at: now
 }));
@@ -134,6 +222,10 @@ export const initialData: AppData = {
   units,
   categories: defaultCategories,
   inspection_types: defaultInspectionTypes,
+  inspection_templates: [finalDeliveryTemplate],
+  inspection_checklist_items: finalDeliveryChecklistItems,
+  inspection_runs: [],
+  inspection_run_items: [],
   subcategories: defaultSubcategories,
   unit_categories: [],
   unit_subcategories: [],

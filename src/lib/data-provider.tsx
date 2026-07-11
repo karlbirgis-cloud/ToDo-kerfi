@@ -2,9 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
-import { initialData } from "./mock-data";
+import { defaultInspectionTypes, finalDeliveryChecklistItems, finalDeliveryTemplate, initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
-import type { AccessScope, AppData, InspectionType, Profile, ResponsibleParty, Task, TaskStatus, Unit, UnitType } from "./types";
+import type { AccessScope, AppData, InspectionRunItemStatus, InspectionType, Profile, ResponsibleParty, Task, TaskPriority, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
 
 type NewProjectInput = { project_number: string; name: string };
@@ -15,8 +15,19 @@ type ProfilePatch = Partial<Pick<Profile, "name" | "email" | "phone" | "work_sco
 type NewResponsiblePartyInput = Pick<ResponsibleParty, "name"> & Partial<Pick<ResponsibleParty, "email" | "phone">>;
 type NewInspectionTypeInput = Pick<InspectionType, "name"> & Partial<Pick<InspectionType, "sort_order" | "is_active">>;
 type NewTaskInput = Pick<Task, "project_id" | "location_id" | "unit_id" | "category_id" | "subcategory_id" | "title"> &
-  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "inspection_type_id" | "due_date">>;
+  Partial<Pick<Task, "description" | "priority" | "assigned_to_user_id" | "responsible_party_id" | "inspection_type_id" | "inspection_run_item_id" | "due_date">>;
 type NewTaskPlanMarkerInput = { task_id: string; floor_plan_id: string; x_percent: number; y_percent: number };
+type InspectionRunInput = { inspection_type_id: string; template_id: string; project_id: string; location_id: string; unit_id: string };
+type InspectionIssueInput = {
+  run_id: string;
+  checklist_item_id: string;
+  title: string;
+  description?: string;
+  category_id: string;
+  subcategory_id: string;
+  responsible_party_id?: string;
+  priority?: TaskPriority;
+};
 type SyncState = {
   isOnline: boolean;
   isSyncing: boolean;
@@ -39,6 +50,9 @@ type DataContextValue = {
   updateResponsibleParty(responsiblePartyId: string, patch: Partial<NewResponsiblePartyInput>): void;
   createInspectionType(input: NewInspectionTypeInput): string;
   updateInspectionType(inspectionTypeId: string, patch: Partial<NewInspectionTypeInput>): void;
+  getOrCreateInspectionRun(input: InspectionRunInput): string;
+  updateInspectionRunItem(runId: string, checklistItemId: string, status: InspectionRunItemStatus): void;
+  createInspectionIssue(input: InspectionIssueInput): string;
   createTask(input: NewTaskInput): string;
   updateTask(taskId: string, patch: Partial<Task>): void;
   updateTaskStatus(taskId: string, status: TaskStatus): void;
@@ -138,10 +152,27 @@ function hydrateData(): AppData {
 }
 
 function normalizeData(data: AppData): AppData {
+  const inspectionTypes = data.inspection_types ?? [];
+  const mergedInspectionTypes = [
+    ...inspectionTypes,
+    ...defaultInspectionTypes.filter((defaultType) => !inspectionTypes.some((inspectionType) => inspectionType.id === defaultType.id || inspectionType.name === defaultType.name))
+  ];
+  const inspectionTemplates = data.inspection_templates ?? [];
+  const inspectionChecklistItems = data.inspection_checklist_items ?? [];
+
   return {
     ...data,
     responsible_parties: data.responsible_parties ?? [],
-    inspection_types: data.inspection_types ?? initialData.inspection_types,
+    inspection_types: mergedInspectionTypes,
+    inspection_templates: inspectionTemplates.some((template) => template.id === finalDeliveryTemplate.id)
+      ? inspectionTemplates
+      : [...inspectionTemplates, finalDeliveryTemplate],
+    inspection_checklist_items: [
+      ...inspectionChecklistItems,
+      ...finalDeliveryChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
+    ],
+    inspection_runs: data.inspection_runs ?? [],
+    inspection_run_items: data.inspection_run_items ?? [],
     floor_plans: data.floor_plans ?? [],
     task_plan_markers: data.task_plan_markers ?? [],
     profiles: data.profiles.map((profile) => ({
@@ -441,6 +472,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
     }
 
+    function ensureInspectionRunItems(nextData: AppData, runId: string, templateId: string) {
+      nextData.inspection_checklist_items
+        .filter((item) => item.template_id === templateId)
+        .forEach((item) => {
+          const exists = nextData.inspection_run_items.some((runItem) => runItem.run_id === runId && runItem.checklist_item_id === item.id);
+          if (!exists) {
+            nextData.inspection_run_items.push({
+              id: makeId("inspection_run_item"),
+              run_id: runId,
+              checklist_item_id: item.id,
+              status: "unchecked",
+              created_at: todayIso(),
+              updated_at: todayIso()
+            });
+          }
+        });
+    }
+
     function update(mutator: (draft: AppData) => void) {
       const draft = structuredClone(dataRef.current);
       mutator(draft);
@@ -609,6 +658,105 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           inspectionType.updated_at = todayIso();
         });
       },
+      getOrCreateInspectionRun(input) {
+        const existing = dataRef.current.inspection_runs.find((run) =>
+          run.inspection_type_id === input.inspection_type_id &&
+          run.template_id === input.template_id &&
+          run.project_id === input.project_id &&
+          run.location_id === input.location_id &&
+          run.unit_id === input.unit_id
+        );
+        if (existing) {
+          const hasMissingItems = dataRef.current.inspection_checklist_items
+            .filter((item) => item.template_id === existing.template_id)
+            .some((item) => !dataRef.current.inspection_run_items.some((runItem) => runItem.run_id === existing.id && runItem.checklist_item_id === item.id));
+          if (hasMissingItems) update((draft) => ensureInspectionRunItems(draft, existing.id, existing.template_id));
+          return existing.id;
+        }
+
+        const id = makeId("inspection_run");
+        update((draft) => {
+          draft.inspection_runs.push({
+            id,
+            inspection_type_id: input.inspection_type_id,
+            template_id: input.template_id,
+            project_id: input.project_id,
+            location_id: input.location_id,
+            unit_id: input.unit_id,
+            started_by_user_id: currentUserId,
+            created_at: todayIso(),
+            updated_at: todayIso()
+          });
+          ensureInspectionRunItems(draft, id, input.template_id);
+        });
+        return id;
+      },
+      updateInspectionRunItem(runId, checklistItemId, status) {
+        update((draft) => {
+          const runItem = draft.inspection_run_items.find((item) => item.run_id === runId && item.checklist_item_id === checklistItemId);
+          if (!runItem) return;
+          runItem.status = status;
+          runItem.checked_by_user_id = currentUserId;
+          runItem.checked_at = todayIso();
+          runItem.updated_at = todayIso();
+
+          const run = draft.inspection_runs.find((item) => item.id === runId);
+          if (run) {
+            run.completed_at = undefined;
+            run.updated_at = todayIso();
+          }
+        });
+      },
+      createInspectionIssue(input) {
+        const run = dataRef.current.inspection_runs.find((item) => item.id === input.run_id);
+        const checklistItem = dataRef.current.inspection_checklist_items.find((item) => item.id === input.checklist_item_id);
+        const runItemId = dataRef.current.inspection_run_items.find((item) => item.run_id === input.run_id && item.checklist_item_id === input.checklist_item_id)?.id ?? makeId("inspection_run_item");
+        const id = makeId("task");
+
+        if (!run || !checklistItem) return "";
+
+        update((draft) => {
+          let runItem = draft.inspection_run_items.find((item) => item.run_id === input.run_id && item.checklist_item_id === input.checklist_item_id);
+          if (!runItem) {
+            runItem = {
+              id: runItemId,
+              run_id: input.run_id,
+              checklist_item_id: input.checklist_item_id,
+              status: "unchecked",
+              created_at: todayIso(),
+              updated_at: todayIso()
+            };
+            draft.inspection_run_items.push(runItem);
+          }
+
+          draft.tasks.push({
+            id,
+            company_id: "company_1",
+            project_id: run.project_id,
+            location_id: run.location_id,
+            unit_id: run.unit_id,
+            category_id: input.category_id,
+            subcategory_id: input.subcategory_id,
+            title: input.title,
+            description: input.description,
+            status: "open",
+            priority: input.priority ?? "medium",
+            responsible_party_id: input.responsible_party_id,
+            inspection_type_id: run.inspection_type_id,
+            inspection_run_item_id: runItem.id,
+            created_by_user_id: currentUserId,
+            created_at: todayIso(),
+            updated_at: todayIso()
+          });
+          runItem.status = "issue";
+          runItem.task_id = id;
+          runItem.checked_by_user_id = currentUserId;
+          runItem.checked_at = todayIso();
+          runItem.updated_at = todayIso();
+          draft.task_activity_log.push({ id: makeId("log"), task_id: id, user_id: currentUserId, action: "created_from_inspection", metadata: { runId: input.run_id, checklistItemId: input.checklist_item_id }, created_at: todayIso() });
+        });
+        return id;
+      },
       createTask(input) {
         const id = makeId("task");
         update((draft) => {
@@ -627,6 +775,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             assigned_to_user_id: input.assigned_to_user_id,
             responsible_party_id: input.responsible_party_id,
             inspection_type_id: input.inspection_type_id,
+            inspection_run_item_id: input.inspection_run_item_id,
             created_by_user_id: currentUserId,
             due_date: input.due_date,
             created_at: todayIso(),
