@@ -9,9 +9,14 @@ const responsiblePartiesToRestore = [
   "Bryggjuhverfi",
   "Dverghamrar",
   "Dona",
-  "Járn og Gler",
-  "Gæðamálverk"
+  "J\u00e1rn og Gler",
+  "G\u00e6\u00f0am\u00e1lverk"
 ];
+
+const nameFixes = new Map([
+  ["J\u00c3\u00a1rn og Gler", "J\u00e1rn og Gler"],
+  ["G\u00c3\u00a6\u00c3\u00b0am\u00c3\u00a1lverk", "G\u00e6\u00f0am\u00e1lverk"]
+]);
 
 export async function POST(request: Request) {
   if (!supabaseAdmin) {
@@ -33,7 +38,13 @@ export async function POST(request: Request) {
 
   const appData = state.data as AppData;
   const now = new Date().toISOString();
-  const existingNames = new Set((appData.responsible_parties ?? []).map((party) => party.name.trim().toLowerCase()));
+  const originalParties = appData.responsible_parties ?? [];
+  const repairedParties = originalParties.map((party) => ({
+    ...party,
+    name: nameFixes.get(party.name) ?? party.name,
+    updated_at: nameFixes.has(party.name) ? now : party.updated_at
+  }));
+  const existingNames = new Set(repairedParties.map((party) => party.name.trim().toLowerCase()));
   const addedParties: ResponsibleParty[] = responsiblePartiesToRestore
     .filter((name) => !existingNames.has(name.toLowerCase()))
     .map((name, index) => ({
@@ -47,7 +58,7 @@ export async function POST(request: Request) {
 
   const nextData: AppData = {
     ...appData,
-    responsible_parties: [...(appData.responsible_parties ?? []), ...addedParties]
+    responsible_parties: [...repairedParties, ...addedParties]
   };
 
   const { error: updateError } = await supabaseAdmin
@@ -58,6 +69,9 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    repaired: repairedParties
+      .filter((party, index) => party.name !== originalParties[index]?.name)
+      .map((party) => party.name),
     added: addedParties.map((party) => party.name),
     total: nextData.responsible_parties.length
   });
