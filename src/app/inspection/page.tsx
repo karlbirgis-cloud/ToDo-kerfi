@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowUpRight, Check, ClipboardCheck, ClipboardList, ListChecks, MapPin, MinusCircle, Save } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Camera, Check, ClipboardCheck, ClipboardList, ListChecks, MapPin, MinusCircle, Save } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { TaskCard } from "@/components/task-card";
 import { Button, Card, EmptyState, PageHeader, ProgressBar } from "@/components/ui";
@@ -352,7 +352,7 @@ function ChecklistRow({
 }
 
 function IssueForm({ data, item, onSaved, runId }: { data: AppData; item: InspectionChecklistItem; onSaved(): void; runId: string }) {
-  const { createInspectionIssue } = useAppData();
+  const { addTaskImages, createInspectionIssue, flushPendingCloudSave } = useAppData();
   const activeCategories = data.categories.filter((category) => category.is_active).sort((a, b) => a.sort_order - b.sort_order);
   const initialCategoryId = item.category_id && activeCategories.some((category) => category.id === item.category_id) ? item.category_id : activeCategories[0]?.id ?? "";
   const [categoryId, setCategoryId] = useState(initialCategoryId);
@@ -363,6 +363,10 @@ function IssueForm({ data, item, onSaved, runId }: { data: AppData; item: Inspec
   const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
   const [description, setDescription] = useState("");
   const [responsiblePartyId, setResponsiblePartyId] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (!subcategories.some((subcategory) => subcategory.id === subcategoryId)) {
@@ -370,22 +374,39 @@ function IssueForm({ data, item, onSaved, runId }: { data: AppData; item: Inspec
     }
   }, [subcategoryId, subcategories]);
 
+  useEffect(() => {
+    return () => imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+  }, [imagePreviews]);
+
   return (
     <form
       className="grid gap-3 rounded-md border border-red-100 bg-white p-3"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        if (!categoryId || !subcategoryId || !description.trim()) return;
-        createInspectionIssue({
-          run_id: runId,
-          checklist_item_id: item.id,
-          title: item.title,
-          description: description.trim(),
-          category_id: categoryId,
-          subcategory_id: subcategoryId,
-          responsible_party_id: responsiblePartyId || undefined
-        });
-        onSaved();
+        if (!categoryId || !subcategoryId || !description.trim() || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setErrorMessage("");
+        try {
+          const taskId = createInspectionIssue({
+            run_id: runId,
+            checklist_item_id: item.id,
+            title: item.title,
+            description: description.trim(),
+            category_id: categoryId,
+            subcategory_id: subcategoryId,
+            responsible_party_id: responsiblePartyId || undefined
+          });
+          if (!taskId) throw new Error("Ekki tókst að stofna athugasemd.");
+          if (imageFiles.length > 0) await addTaskImages(taskId, imageFiles);
+          await flushPendingCloudSave();
+          onSaved();
+        } catch (error) {
+          console.error(error);
+          setErrorMessage("Athugasemdin var ekki vistuð með myndum. Reyndu aftur eða bættu mynd við á atriðasíðunni.");
+        } finally {
+          setIsSubmitting(false);
+        }
       }}
     >
       <label className="grid gap-1 text-sm font-semibold text-slate-700">
@@ -441,7 +462,39 @@ function IssueForm({ data, item, onSaved, runId }: { data: AppData; item: Inspec
           </select>
         </label>
       </div>
-      <Button disabled={!categoryId || !subcategoryId || !description.trim()}><Save className="h-4 w-4" /> Stofna athugasemd</Button>
+      <label className="grid gap-2 text-sm font-semibold text-slate-700">
+        Myndir
+        <span className="touch-target flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-bold text-slate-700 transition hover:border-blueprint hover:bg-blue-50">
+          <Camera className="h-4 w-4" /> Bæta við mynd
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              setErrorMessage("");
+              setImageFiles(files);
+              setImagePreviews((current) => {
+                current.forEach((preview) => URL.revokeObjectURL(preview));
+                return files.map((file) => URL.createObjectURL(file));
+              });
+            }}
+          />
+        </span>
+      </label>
+      {imagePreviews.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {imagePreviews.map((preview, index) => (
+            <img key={preview} src={preview} alt={`Mynd ${index + 1}`} className="aspect-square rounded-md border border-slate-200 bg-slate-100 object-contain" />
+          ))}
+        </div>
+      ) : null}
+      <Button disabled={!categoryId || !subcategoryId || !description.trim() || isSubmitting}>
+        <Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna athugasemd"}
+      </Button>
+      {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
     </form>
   );
 }
