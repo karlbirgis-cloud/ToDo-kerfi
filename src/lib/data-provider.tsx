@@ -359,7 +359,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (readPendingCloudSave()) {
+      if (false && readPendingCloudSave()) {
         if (isMounted) {
           const nextData = hydrateData();
           dataRef.current = nextData;
@@ -394,6 +394,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           dataRef.current = nextData;
           setData(nextData);
           setPersistenceMode("cloud");
+          writeLocalData(nextData);
+          writePendingCloudSave(false);
+          setSyncState((current) => ({ ...current, hasPendingChanges: false, lastError: undefined }));
         }
       } catch (error) {
         console.error(error);
@@ -422,7 +425,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function handleOnline() {
       setSyncState((current) => ({ ...current, isOnline: true }));
-      if (readPendingCloudSave()) {
+      if (false && readPendingCloudSave()) {
         pendingCloudSaveRef.current = pendingCloudSaveRef.current
           .catch(() => undefined)
           .then(() => syncCloudSnapshot())
