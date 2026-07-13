@@ -9,7 +9,8 @@ import { useAppData } from "@/lib/data-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/safety-b25-27-29-31", label: "Öryggisúttekt B25-27 og 29-31", mobileLabel: "Öryggi", icon: ClipboardCheck },
+  { href: "/afhending-b25-27", label: "Afhending B25-27", mobileLabel: "B25-27", icon: ClipboardCheck },
+  { href: "/afhending-b29-31", label: "Afhending B29-31", mobileLabel: "B29-31", icon: ClipboardCheck },
   { href: "/dashboard", label: "Dashboard", mobileLabel: "Yfirlit", icon: BarChart3 },
   { href: "/inspection", label: "Úttekt", mobileLabel: "Úttekt", icon: ClipboardCheck },
   { href: "/reports", label: "Skýrslur", mobileLabel: "Skýrslur", icon: FileText },
@@ -24,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { session, user, isLoading, signOut } = useAuth();
   const { syncState, retrySync } = useAppData();
   const isLogin = pathname === "/login";
-  const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports") || pathname.startsWith("/safety-b25-27-29-31");
+  const isWidePage = pathname.startsWith("/dashboard") || pathname.startsWith("/reports") || pathname.startsWith("/safety-b25-27-29-31") || pathname.startsWith("/afhending-");
 
   useEffect(() => {
     if (isLogin) return;
