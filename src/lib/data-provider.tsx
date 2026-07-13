@@ -347,7 +347,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     pendingCloudSaveRef.current = pendingCloudSaveRef.current
       .catch(() => undefined)
       .then(async () => {
-        dataRef.current = nextData;
         await syncCloudSnapshot(nextData, saveVersion);
       })
       .catch((error) => {
