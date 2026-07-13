@@ -700,8 +700,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       },
       updateInspectionRunItem(runId, checklistItemId, status) {
         update((draft) => {
-          const runItem = draft.inspection_run_items.find((item) => item.run_id === runId && item.checklist_item_id === checklistItemId);
-          if (!runItem) return;
+          let runItem = draft.inspection_run_items.find((item) => item.run_id === runId && item.checklist_item_id === checklistItemId);
+          if (!runItem) {
+            const run = draft.inspection_runs.find((item) => item.id === runId);
+            const checklistItem = draft.inspection_checklist_items.find((item) => item.id === checklistItemId);
+            if (!run || !checklistItem || checklistItem.template_id !== run.template_id) return;
+
+            runItem = {
+              id: makeId("inspection_run_item"),
+              run_id: runId,
+              checklist_item_id: checklistItemId,
+              status: "unchecked",
+              created_at: todayIso(),
+              updated_at: todayIso()
+            };
+            draft.inspection_run_items.push(runItem);
+          }
+
           runItem.status = status;
           runItem.checked_by_user_id = currentUserId;
           runItem.checked_at = todayIso();
