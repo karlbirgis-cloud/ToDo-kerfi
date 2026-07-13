@@ -202,9 +202,10 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1020px] border-collapse text-left text-sm">
           <thead className="bg-white text-xs font-bold uppercase text-slate-500">
             <tr>
+              <Th>Rými</Th>
               <Th>Titill</Th>
               <Th>Lýsing</Th>
               <Th>Flokkur</Th>
@@ -226,6 +227,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
                   }}
                   className={cn("cursor-pointer border-l-4 transition hover:bg-blue-50/50 focus:bg-blue-50 focus:outline-none", getStatusTone(task.status))}
                 >
+                  <Td>{row.section}</Td>
                   <Td className="font-bold text-ink">{task.title}</Td>
                   <Td className="max-w-md text-slate-600"><span className="line-clamp-2">{task.description || "-"}</span></Td>
                   <Td>{row.category}</Td>
@@ -261,6 +263,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
               <h3 className="mt-3 font-bold text-ink">{task.title}</h3>
               <p className="mt-1 line-clamp-2 text-sm text-slate-600">{task.description || "-"}</p>
               <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <Detail label="Rými" value={row.section} />
                 <Detail label="Flokkur" value={row.category} />
                 <Detail label="Staða" value={statusLabels[task.status]} />
               </dl>
@@ -331,6 +334,7 @@ function PrintableGroup({ group, data, pageTitle }: { group: PrintGroup; data: A
                 <div className="mt-4 grid gap-5 text-sm sm:grid-cols-[190px_1fr]">
                   <div className="border border-slate-900">
                     <PrintBoxRow label="Íbúð / rými" value={row.unit} />
+                    <PrintBoxRow label="Staðsetning" value={row.section} />
                     <PrintBoxRow label="Ábyrgðaraðili" value={row.assignee ?? "Óúthlutað"} />
                   </div>
 
@@ -387,8 +391,16 @@ function PrintBoxRow({ label, value }: { label: string; value: string }) {
 }
 
 function getTaskRow(task: Task, data: AppData) {
+  const runItem = task.inspection_run_item_id
+    ? data.inspection_run_items.find((item) => item.id === task.inspection_run_item_id)
+    : undefined;
+  const checklistItem = runItem?.checklist_item_id
+    ? data.inspection_checklist_items.find((item) => item.id === runItem.checklist_item_id)
+    : undefined;
+
   return {
     unit: data.units.find((unit) => unit.id === task.unit_id)?.name ?? "-",
+    section: checklistItem?.section ?? "-",
     category: data.categories.find((category) => category.id === task.category_id)?.name ?? "-",
     assignee: getTaskResponsiblePartyName(data, task)
   };
