@@ -265,7 +265,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const dataRef = useRef<AppData>(initialData);
   const pendingCloudSaveRef = useRef<Promise<void>>(Promise.resolve());
-  const saveVersionRef = useRef(0);
+  const pendingCloudDataRef = useRef<AppData | null>(null);
+  const isCloudSaveRunningRef = useRef(false);
   const accessToken = session?.access_token;
   const currentProfile = data.profiles.find((profile) =>
     profile.id === user?.id ||
@@ -308,12 +309,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return draft;
   }, []);
 
-  const syncCloudSnapshot = useCallback(async (snapshot?: AppData, saveVersion?: number) => {
+  const syncCloudSnapshot = useCallback(async (snapshot: AppData) => {
     if (!useCloudData || !accessToken) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("Engin nettenging.");
 
     setSyncState((current) => ({ ...current, isOnline: true, isSyncing: true, lastError: undefined }));
-    const nextData = await uploadPendingTaskImages(snapshot ?? dataRef.current);
+    const nextData = await uploadPendingTaskImages(snapshot);
     const response = await fetch("/api/app-data", {
       method: "PUT",
       headers: {
@@ -328,26 +329,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       throw new Error(payload?.error ?? "Cloud data could not be saved.");
     }
 
-    if (saveVersion === undefined || saveVersion === saveVersionRef.current) {
-      dataRef.current = nextData;
-      setData(nextData);
-      writeLocalData(nextData);
-      writePendingCloudSave(false);
-      setSyncState((current) => ({ ...current, isOnline: true, isSyncing: false, hasPendingChanges: false, lastError: undefined }));
-    }
+    return nextData;
   }, [accessToken, uploadPendingTaskImages, useCloudData]);
 
-  const persistCloudData = useCallback((nextData: AppData) => {
-    const saveVersion = saveVersionRef.current + 1;
-    saveVersionRef.current = saveVersion;
-    writeLocalData(nextData);
-    writePendingCloudSave(true);
-    setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
+  const startCloudSaveQueue = useCallback(() => {
+    if (isCloudSaveRunningRef.current) return pendingCloudSaveRef.current;
 
+    isCloudSaveRunningRef.current = true;
     pendingCloudSaveRef.current = pendingCloudSaveRef.current
       .catch(() => undefined)
       .then(async () => {
-        await syncCloudSnapshot(nextData, saveVersion);
+        let activeSnapshot: AppData | null = null;
+
+        try {
+          while (pendingCloudDataRef.current) {
+            activeSnapshot = pendingCloudDataRef.current;
+            pendingCloudDataRef.current = null;
+
+            const savedData = await syncCloudSnapshot(activeSnapshot);
+            activeSnapshot = null;
+
+            if (!pendingCloudDataRef.current && savedData) {
+              dataRef.current = savedData;
+              setData(savedData);
+              writeLocalData(savedData);
+              writePendingCloudSave(false);
+              setSyncState((current) => ({ ...current, isOnline: true, isSyncing: false, hasPendingChanges: false, lastError: undefined }));
+            }
+          }
+        } catch (error) {
+          if (activeSnapshot && !pendingCloudDataRef.current) pendingCloudDataRef.current = activeSnapshot;
+          throw error;
+        } finally {
+          isCloudSaveRunningRef.current = false;
+        }
       })
       .catch((error) => {
         console.error(error);
@@ -363,6 +378,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     return pendingCloudSaveRef.current;
   }, [syncCloudSnapshot]);
+
+  const persistCloudData = useCallback((nextData: AppData) => {
+    pendingCloudDataRef.current = nextData;
+    writeLocalData(nextData);
+    writePendingCloudSave(true);
+    setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
+
+    return startCloudSaveQueue();
+  }, [startCloudSaveQueue]);
 
   useEffect(() => {
     let isMounted = true;
@@ -396,9 +420,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setPersistenceMode("cloud");
           setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
         }
+        pendingCloudDataRef.current = dataRef.current;
         pendingCloudSaveRef.current = pendingCloudSaveRef.current
           .catch(() => undefined)
-          .then(() => syncCloudSnapshot())
+          .then(() => startCloudSaveQueue())
           .catch((error) => {
             console.error(error);
             setSyncState((current) => ({
@@ -449,15 +474,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, isAuthLoading, session, syncCloudSnapshot, useCloudData]);
+  }, [accessToken, isAuthLoading, session, startCloudSaveQueue, useCloudData]);
 
   useEffect(() => {
     function handleOnline() {
       setSyncState((current) => ({ ...current, isOnline: true }));
       if (false && readPendingCloudSave()) {
+        pendingCloudDataRef.current = dataRef.current;
         pendingCloudSaveRef.current = pendingCloudSaveRef.current
           .catch(() => undefined)
-          .then(() => syncCloudSnapshot())
+          .then(() => startCloudSaveQueue())
           .catch((error) => {
             console.error(error);
             setSyncState((current) => ({
@@ -480,7 +506,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [syncCloudSnapshot]);
+  }, [startCloudSaveQueue]);
 
   const value = useMemo<DataContextValue>(() => {
     function createDefaultStructureForUnit(nextData: AppData, unitId: string) {
@@ -1052,21 +1078,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       },
       async retrySync() {
         if (!useCloudData || !accessToken) return;
-        const saveVersion = saveVersionRef.current + 1;
-        saveVersionRef.current = saveVersion;
-        const nextData = dataRef.current;
-        pendingCloudSaveRef.current = pendingCloudSaveRef.current
-          .catch(() => undefined)
-          .then(() => syncCloudSnapshot(nextData, saveVersion))
-          .catch((error) => {
-            console.error(error);
-            setSyncState((current) => ({
-              ...current,
-              isSyncing: false,
-              hasPendingChanges: true,
-              lastError: error instanceof Error ? error.message : "Samstilling mistókst."
-            }));
-          });
+        pendingCloudDataRef.current = dataRef.current;
+        writePendingCloudSave(true);
+        setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
+        startCloudSaveQueue();
         await pendingCloudSaveRef.current;
       },
       resetDemoData() {
@@ -1081,7 +1096,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
-  }, [accessToken, currentUserId, scopedData, persistenceMode, persistCloudData, syncCloudSnapshot, syncState, useCloudData]);
+  }, [accessToken, currentUserId, scopedData, persistenceMode, persistCloudData, startCloudSaveQueue, syncState, useCloudData]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
