@@ -18,6 +18,7 @@ export default function InspectionPage() {
   const [unitId, setUnitId] = useState("");
   const [runId, setRunId] = useState("");
   const [openIssueItemId, setOpenIssueItemId] = useState("");
+  const [pendingStatuses, setPendingStatuses] = useState<Record<string, InspectionRunItemStatus>>({});
 
   const inspectionTypes = useMemo(
     () => data.inspection_types.filter((item) => item.is_active).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { numeric: true })),
@@ -82,20 +83,40 @@ export default function InspectionPage() {
     ? data.inspection_checklist_items.filter((item) => item.template_id === template.id).sort((a, b) => a.sort_order - b.sort_order)
     : [];
   const runItems = data.inspection_run_items.filter((item) => item.run_id === runId);
+  const effectiveRunItems = checklistItems.map((item) => {
+    const runItem = runItems.find((candidate) => candidate.checklist_item_id === item.id);
+    const pendingStatus = pendingStatuses[getPendingStatusKey(runId, item.id)];
+    return { status: pendingStatus ?? runItem?.status ?? "unchecked" };
+  });
   const runItemIds = new Set(runItems.map((item) => item.id));
   const issueTasks = data.tasks
     .filter((task) => task.inspection_run_item_id && runItemIds.has(task.inspection_run_item_id) && task.status !== "done")
     .sort((a, b) => a.title.localeCompare(b.title, "is", { numeric: true }));
   const unitTasks = unit ? tasksFor(data, { unit_id: unit.id }) : [];
   const summary = summarizeTasks(unitTasks);
-  const checklistSummary = summarizeChecklist(checklistItems.length, runItems);
+  const checklistSummary = summarizeChecklist(checklistItems.length, effectiveRunItems);
   const groupedItems = groupChecklistItems(checklistItems);
 
-  async function markItem(checklistItemId: string, status: InspectionRunItemStatus) {
+  useEffect(() => {
+    setPendingStatuses((current) => {
+      const entries = Object.entries(current).filter(([key, status]) => {
+        const [pendingRunId, checklistItemId] = key.split(":");
+        if (pendingRunId !== runId) return true;
+
+        const runItem = runItems.find((item) => item.checklist_item_id === checklistItemId);
+        return runItem?.status !== status;
+      });
+
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries);
+    });
+  }, [runId, runItems]);
+
+  function markItem(checklistItemId: string, status: InspectionRunItemStatus) {
     if (!runId) return;
+    setPendingStatuses((current) => ({ ...current, [getPendingStatusKey(runId, checklistItemId)]: status }));
     updateInspectionRunItem(runId, checklistItemId, status);
     setOpenIssueItemId("");
-    await flushPendingCloudSave().catch(() => undefined);
+    flushPendingCloudSave().catch(() => undefined);
   }
 
   return (
@@ -236,7 +257,7 @@ export default function InspectionPage() {
                       {items.map((item) => {
                         const runItem = runItems.find((candidate) => candidate.checklist_item_id === item.id);
                         const task = runItem?.task_id ? data.tasks.find((candidate) => candidate.id === runItem.task_id) : undefined;
-                        const status = runItem?.status ?? "unchecked";
+                        const status = pendingStatuses[getPendingStatusKey(runId, item.id)] ?? runItem?.status ?? "unchecked";
 
                         return (
                           <ChecklistRow
@@ -554,6 +575,10 @@ function StatusPill({ status }: { status: InspectionRunItemStatus }) {
   };
 
   return <span className={cn("rounded-full px-2.5 py-1 text-xs font-bold ring-1", tones[status])}>{labels[status]}</span>;
+}
+
+function getPendingStatusKey(runId: string, checklistItemId: string) {
+  return `${runId}:${checklistItemId}`;
 }
 
 function groupChecklistItems(items: InspectionChecklistItem[]) {
