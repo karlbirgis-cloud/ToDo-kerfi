@@ -240,6 +240,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const dataRef = useRef<AppData>(initialData);
   const pendingCloudSaveRef = useRef<Promise<void>>(Promise.resolve());
+  const saveVersionRef = useRef(0);
   const accessToken = session?.access_token;
   const currentProfile = data.profiles.find((profile) =>
     profile.id === user?.id ||
@@ -282,12 +283,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return draft;
   }, []);
 
-  const syncCloudSnapshot = useCallback(async () => {
+  const syncCloudSnapshot = useCallback(async (snapshot?: AppData, saveVersion?: number) => {
     if (!useCloudData || !accessToken) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("Engin nettenging.");
 
     setSyncState((current) => ({ ...current, isOnline: true, isSyncing: true, lastError: undefined }));
-    const nextData = await uploadPendingTaskImages(dataRef.current);
+    const nextData = await uploadPendingTaskImages(snapshot ?? dataRef.current);
     const response = await fetch("/api/app-data", {
       method: "PUT",
       headers: {
@@ -302,14 +303,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       throw new Error(payload?.error ?? "Cloud data could not be saved.");
     }
 
-    dataRef.current = nextData;
-    setData(nextData);
-    writeLocalData(nextData);
-    writePendingCloudSave(false);
-    setSyncState((current) => ({ ...current, isOnline: true, isSyncing: false, hasPendingChanges: false, lastError: undefined }));
+    if (saveVersion === undefined || saveVersion === saveVersionRef.current) {
+      dataRef.current = nextData;
+      setData(nextData);
+      writeLocalData(nextData);
+      writePendingCloudSave(false);
+      setSyncState((current) => ({ ...current, isOnline: true, isSyncing: false, hasPendingChanges: false, lastError: undefined }));
+    }
   }, [accessToken, uploadPendingTaskImages, useCloudData]);
 
   const persistCloudData = useCallback((nextData: AppData) => {
+    const saveVersion = saveVersionRef.current + 1;
+    saveVersionRef.current = saveVersion;
     writeLocalData(nextData);
     writePendingCloudSave(true);
     setSyncState((current) => ({ ...current, hasPendingChanges: true, lastError: undefined }));
@@ -318,7 +323,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined)
       .then(async () => {
         dataRef.current = nextData;
-        await syncCloudSnapshot();
+        await syncCloudSnapshot(nextData, saveVersion);
       })
       .catch((error) => {
         console.error(error);
@@ -1023,9 +1028,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       },
       async retrySync() {
         if (!useCloudData || !accessToken) return;
+        const saveVersion = saveVersionRef.current + 1;
+        saveVersionRef.current = saveVersion;
+        const nextData = dataRef.current;
         pendingCloudSaveRef.current = pendingCloudSaveRef.current
           .catch(() => undefined)
-          .then(() => syncCloudSnapshot())
+          .then(() => syncCloudSnapshot(nextData, saveVersion))
           .catch((error) => {
             console.error(error);
             setSyncState((current) => ({
