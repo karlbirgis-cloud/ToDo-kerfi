@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
-import { defaultInspectionTypes, finalDeliveryChecklistItems, finalDeliveryTemplate, initialData } from "./mock-data";
+import { defaultInspectionTypes, defaultSubcategories, finalDeliveryChecklistItems, finalDeliveryTemplate, initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
 import type { AccessScope, AppData, InspectionRunItemStatus, InspectionType, Profile, ResponsibleParty, Task, TaskPriority, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
@@ -166,6 +166,29 @@ function normalizeData(data: AppData): AppData {
     }),
     ...finalDeliveryChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
   ];
+  const subcategories = data.subcategories ?? [];
+  const mergedSubcategories = [
+    ...subcategories,
+    ...defaultSubcategories.filter((defaultSubcategory) =>
+      !subcategories.some((subcategory) =>
+        subcategory.id === defaultSubcategory.id ||
+        (subcategory.category_id === defaultSubcategory.category_id && subcategory.name === defaultSubcategory.name)
+      )
+    )
+  ];
+  const unitSubcategories = data.unit_subcategories ?? [];
+  const missingDefaultUnitSubcategories = (data.units ?? []).flatMap((unit) =>
+    defaultSubcategories
+      .filter((subcategory) => !unitSubcategories.some((item) => item.unit_id === unit.id && item.subcategory_id === subcategory.id))
+      .map((subcategory) => ({
+        id: `us_${unit.id}_${subcategory.id}`,
+        unit_id: unit.id,
+        category_id: subcategory.category_id,
+        subcategory_id: subcategory.id,
+        sort_order: subcategory.sort_order,
+        created_at: todayIso()
+      }))
+  );
 
   return {
     ...data,
@@ -177,6 +200,8 @@ function normalizeData(data: AppData): AppData {
     inspection_checklist_items: normalizedInspectionChecklistItems,
     inspection_runs: data.inspection_runs ?? [],
     inspection_run_items: data.inspection_run_items ?? [],
+    subcategories: mergedSubcategories,
+    unit_subcategories: [...unitSubcategories, ...missingDefaultUnitSubcategories],
     floor_plans: data.floor_plans ?? [],
     task_plan_markers: data.task_plan_markers ?? [],
     profiles: data.profiles.map((profile) => ({

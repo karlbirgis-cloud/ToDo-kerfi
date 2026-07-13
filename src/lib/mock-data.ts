@@ -29,7 +29,7 @@ const subcategoryGroups: Record<string, string[]> = {
   cat_4: ["Rafmagn", "Lyfta"],
   cat_5: ["Flotun", "Múrverk", "Gipsveggir", "Málun", "Flísalögn", "Innréttingar", "Rafmagn", "Innihurðar", "Sólbekkir", "Frágangur", "Þrif"],
   cat_6: ["Laus búnaður", "Annað"],
-  cat_7: ["Einangrun", "Klæðning", "Múrverk út", "Gluggar", "Gler", "Þakfrágangur", "Svalahandrið"],
+  cat_7: ["Einangrun", "Klæðning", "Múrverk út", "Gluggar", "Gler", "Þakfrágangur", "Svalahandrið", "Svalarhurð"],
   cat_8: ["Lóðarfrágangur"],
   cat_9: ["Ófyrirséð"]
 };
@@ -88,7 +88,7 @@ const finalDeliveryChecklistSource = [
   ["ELDHÚS", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
   ["ELDHÚS", "Lökkun glugga", "Lökkun glugga í lagi", "cat_5", "sub_cat_5_10"],
   ["ELDHÚS", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
-  ["STOFA", "Svalahurð", "Læsing og lamir á svalahurð eru í lagi og á henni hurðarpumpa.", "cat_5", "sub_cat_5_8"],
+  ["STOFA", "Svalahurð", "Læsing og lamir á svalahurð eru í lagi og á henni hurðarpumpa.", "cat_7", "sub_cat_7_8"],
   ["STOFA", "Málning", "Málning veggja og lofta er í lagi.", "cat_5", "sub_cat_5_4"],
   ["STOFA", "Lökkun glugga", "Lökkun glugga í lagi", "cat_5", "sub_cat_5_10"],
   ["STOFA", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
