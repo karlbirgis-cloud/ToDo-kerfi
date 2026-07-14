@@ -222,8 +222,10 @@ function ReportTask({ task, data, includeFloorPlans, includeImages, includeComme
           <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><Camera className="h-4 w-4" /> Myndir ({images.length})</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {images.map((image) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={image.id} src={image.image_url} alt={`Mynd fyrir ${task.title}`} className="h-44 w-full rounded-md border border-slate-200 bg-slate-100 object-contain" />
+              <a key={image.id} href={image.image_url} target="_blank" rel="noopener noreferrer" title="Opna mynd í nýjum glugga" className="block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={image.image_url} alt={`Mynd fyrir ${task.title}`} className="h-44 w-full rounded-md border border-slate-200 bg-slate-100 object-contain transition hover:opacity-90" />
+              </a>
             ))}
           </div>
         </div>

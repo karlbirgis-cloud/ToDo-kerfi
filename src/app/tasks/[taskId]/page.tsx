@@ -114,7 +114,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ taskId: s
               <div className="grid gap-3 sm:grid-cols-2">
                 {images.map((image) => (
                   <div key={image.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
-                    <img src={image.image_url} alt="" className="h-48 w-full bg-slate-100 object-contain" />
+                    <a href={image.image_url} target="_blank" rel="noopener noreferrer" title="Opna mynd í nýjum glugga" className="block">
+                      <img src={image.image_url} alt="" className="h-48 w-full bg-slate-100 object-contain transition hover:opacity-90" />
+                    </a>
                     <button
                       type="button"
                       disabled={deletingImageId === image.id}

@@ -12,7 +12,11 @@ export function TaskCard({ task, data, onDone }: { task: Task; data: AppData; on
   const image = data.task_images.find((item) => item.task_id === task.id);
   return (
     <Card className="overflow-hidden p-0">
-      {image ? <img src={image.image_url} alt="" className="h-36 w-full bg-slate-100 object-contain" /> : null}
+      {image ? (
+        <a href={image.image_url} target="_blank" rel="noopener noreferrer" title="Opna mynd í nýjum glugga" className="block">
+          <img src={image.image_url} alt="" className="h-36 w-full bg-slate-100 object-contain transition hover:opacity-90" />
+        </a>
+      ) : null}
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <Link href={`/tasks/${task.id}`} className="font-bold text-ink hover:text-blueprint">{task.title}</Link>
