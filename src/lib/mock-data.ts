@@ -128,7 +128,8 @@ const finalDeliveryChecklistSource = [
   ["GEYMSLA OG SAMEIGN", "Geymsluhurð", "Áferð hurða, karma og þröskulda er í lagi.", "cat_5", "sub_cat_5_8"],
   ["GEYMSLA OG SAMEIGN", "Almennur frágangur", "Almennur frágangur í samræmi við skilmála kaupsamnings.", "cat_5", "sub_cat_5_10"],
   ["GEYMSLA OG SAMEIGN", "Rafmagn", "Allir rofar og tenglar tengdir og virka", "cat_4", "sub_cat_4_1"],
-  ["GEYMSLA OG SAMEIGN", "Loftljós", "Loftljós tengd og virka", "cat_4", "sub_cat_4_1"]
+  ["GEYMSLA OG SAMEIGN", "Loftljós", "Loftljós tengd og virka", "cat_4", "sub_cat_4_1"],
+  ["SVALIR", "Svalarloft", "Áferð svalarlofts er í lagi.", "cat_7", "sub_cat_7_7"]
 ] as const;
 
 export const finalDeliveryChecklistItems: InspectionChecklistItem[] = finalDeliveryChecklistSource.map((item, index) => ({
