@@ -64,8 +64,9 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
   }, [printGroup]);
 
   async function printTasks(group: PrintGroup) {
-    const printImageUrls = await createPrintImageUrls(group.tasks, data);
-    setPrintGroup({ ...group, printImageUrls });
+    const sortedTasks = sortTasksForPrint(group.tasks, data);
+    const printImageUrls = await createPrintImageUrls(sortedTasks, data);
+    setPrintGroup({ ...group, tasks: sortedTasks, printImageUrls });
   }
 
   return (
@@ -470,6 +471,18 @@ function getResponsibleFilterOptions(data: AppData, tasks: Task[]) {
 
 function getResponsibleFilterId(task: Task) {
   return task.responsible_party_id ?? task.assigned_to_user_id ?? "unassigned";
+}
+
+function sortTasksForPrint(tasks: Task[], data: AppData) {
+  return [...tasks].sort((a, b) => {
+    const unitA = data.units.find((unit) => unit.id === a.unit_id);
+    const unitB = data.units.find((unit) => unit.id === b.unit_id);
+    const unitSort = (unitA?.sort_order ?? Number.MAX_SAFE_INTEGER) - (unitB?.sort_order ?? Number.MAX_SAFE_INTEGER);
+    if (unitSort) return unitSort;
+
+    const unitNameSort = (unitA?.name ?? "").localeCompare(unitB?.name ?? "", "is", { sensitivity: "base", numeric: true });
+    return unitNameSort || sortTasks(a, b);
+  });
 }
 
 function sortTasks(a: Task, b: Task) {
