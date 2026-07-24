@@ -477,12 +477,17 @@ function sortTasksForPrint(tasks: Task[], data: AppData) {
   return [...tasks].sort((a, b) => {
     const unitA = data.units.find((unit) => unit.id === a.unit_id);
     const unitB = data.units.find((unit) => unit.id === b.unit_id);
-    const unitSort = (unitA?.sort_order ?? Number.MAX_SAFE_INTEGER) - (unitB?.sort_order ?? Number.MAX_SAFE_INTEGER);
-    if (unitSort) return unitSort;
+    const unitNumberSort = getUnitNumberSortValue(unitA?.name) - getUnitNumberSortValue(unitB?.name);
+    if (unitNumberSort) return unitNumberSort;
 
     const unitNameSort = (unitA?.name ?? "").localeCompare(unitB?.name ?? "", "is", { sensitivity: "base", numeric: true });
     return unitNameSort || sortTasks(a, b);
   });
+}
+
+function getUnitNumberSortValue(unitName?: string) {
+  const match = unitName?.match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
 }
 
 function sortTasks(a: Task, b: Task) {
