@@ -18,6 +18,7 @@ type PrintGroup = {
   printId: number;
   printImageUrls?: Record<string, string>;
   responsiblePartyName?: string;
+  statusFilterName?: string;
   tasks: Task[];
   unitName: string;
 };
@@ -27,18 +28,26 @@ type UnitGroup = {
   unit: Unit;
 };
 
+type StatusFilter = TaskStatus | "";
+
 export function DeliveryOverview({ locationName, title }: { locationName: string; title: string }) {
   const { data } = useAppData();
   const [printGroup, setPrintGroup] = useState<PrintGroup | null>(null);
   const [responsibleFilterId, setResponsibleFilterId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const tasks = useMemo(() => getDeliveryTasks(data, locationName), [data, locationName]);
-  const responsibleOptions = useMemo(() => getResponsibleFilterOptions(data, tasks), [data, tasks]);
+  const statusFilteredTasks = useMemo(
+    () => statusFilter ? tasks.filter((task) => task.status === statusFilter) : tasks,
+    [statusFilter, tasks]
+  );
+  const responsibleOptions = useMemo(() => getResponsibleFilterOptions(data, statusFilteredTasks), [data, statusFilteredTasks]);
   const filteredTasks = useMemo(
-    () => responsibleFilterId ? tasks.filter((task) => getResponsibleFilterId(task) === responsibleFilterId) : tasks,
-    [responsibleFilterId, tasks]
+    () => responsibleFilterId ? statusFilteredTasks.filter((task) => getResponsibleFilterId(task) === responsibleFilterId) : statusFilteredTasks,
+    [responsibleFilterId, statusFilteredTasks]
   );
   const unitGroups = useMemo(() => getUnitGroups(data, locationName, filteredTasks), [data, locationName, filteredTasks]);
   const selectedResponsiblePartyName = responsibleOptions.find((option) => option.id === responsibleFilterId)?.name;
+  const selectedStatusFilterName = getStatusFilterName(statusFilter);
 
   useEffect(() => {
     if (!printGroup) return;
@@ -77,23 +86,41 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir íbúðum</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {filteredTasks.length} af {tasks.length} opnum atriðum í {PROJECT_NAME}, {locationName}, merkt {INSPECTION_TYPE_NAME}.
+              {filteredTasks.length} af {tasks.length} atriðum í {PROJECT_NAME}, {locationName}, merkt {INSPECTION_TYPE_NAME}.
             </p>
           </div>
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-end lg:justify-between">
-            <label className="grid gap-1 text-sm font-semibold text-slate-700 lg:min-w-80">
-              Ábyrgðaraðili
-              <select
-                value={responsibleFilterId}
-                onChange={(event) => setResponsibleFilterId(event.target.value)}
-                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-              >
-                <option value="">Allir ábyrgðaraðilar</option>
-                {responsibleOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{option.name} ({option.count})</option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[40rem]">
+              <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                Staða
+                <select
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value as StatusFilter);
+                    setResponsibleFilterId("");
+                  }}
+                  className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+                >
+                  <option value="">Öll atriði</option>
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                Ábyrgðaraðili
+                <select
+                  value={responsibleFilterId}
+                  onChange={(event) => setResponsibleFilterId(event.target.value)}
+                  className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+                >
+                  <option value="">Allir ábyrgðaraðilar</option>
+                  {responsibleOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name} ({option.count})</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <Button
               type="button"
               disabled={filteredTasks.length === 0}
@@ -102,6 +129,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                 locationName,
                 printId: Date.now(),
                 responsiblePartyName: selectedResponsiblePartyName,
+                statusFilterName: selectedStatusFilterName,
                 tasks: filteredTasks,
                 unitName: responsibleFilterId ? "Allar íbúðir - síað eftir ábyrgðaraðila" : "Allar íbúðir"
               })}
@@ -114,6 +142,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
             data={data}
             locationName={locationName}
             responsiblePartyName={selectedResponsiblePartyName}
+            statusFilterName={selectedStatusFilterName}
             onPrint={printTasks}
           />
         </Card>
@@ -158,7 +187,6 @@ function getDeliveryTasks(data: AppData, locationName: string) {
       Boolean(task.inspection_type_id && inspectionTypeIds.has(task.inspection_type_id)) ||
       Boolean(task.inspection_run_item_id && deliveryRunItemIds.has(task.inspection_run_item_id))
     ))
-    .filter((task) => task.status !== "done")
     .sort(sortTasks);
 }
 
@@ -200,16 +228,18 @@ function UnitSections({
   data,
   locationName,
   responsiblePartyName,
+  statusFilterName,
   onPrint
 }: {
   groups: UnitGroup[];
   data: AppData;
   locationName: string;
   responsiblePartyName?: string;
+  statusFilterName?: string;
   onPrint(group: PrintGroup): void;
 }) {
   if (groups.length === 0) {
-    return <div className="p-6 text-sm text-slate-600">Engin opin atriði fundust fyrir þessa götu.</div>;
+    return <div className="p-6 text-sm text-slate-600">Engin atriði fundust fyrir þessa síu.</div>;
   }
 
   return (
@@ -219,7 +249,7 @@ function UnitSections({
           <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-900 px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold">{group.unit.name}</h2>
-              <p className="mt-0.5 text-sm font-semibold text-slate-200">{group.tasks.length} opin atriði</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-200">{group.tasks.length} atriði</p>
             </div>
             <Button
               type="button"
@@ -228,6 +258,7 @@ function UnitSections({
                 locationName,
                 printId: Date.now(),
                 responsiblePartyName,
+                statusFilterName,
                 tasks: group.tasks,
                 unitName: group.unit.name
               })}
@@ -358,6 +389,7 @@ function PrintableGroup({ group, data, pageTitle }: { group: PrintGroup; data: A
         <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
           <PrintDetail label="Gata" value={group.locationName} />
           <PrintDetail label="Íbúð" value={group.unitName} />
+          <PrintDetail label="Staða" value={group.statusFilterName ?? "Öll atriði"} />
           <PrintDetail label="Ábyrgðaraðili" value={group.responsiblePartyName ?? "Allir"} />
           <PrintDetail label="Tegund" value={INSPECTION_TYPE_NAME} />
           <PrintDetail label="Útbúin" value={`${generatedAt} · ${group.tasks.length} atriði`} />
@@ -471,6 +503,10 @@ function getResponsibleFilterOptions(data: AppData, tasks: Task[]) {
 
 function getResponsibleFilterId(task: Task) {
   return task.responsible_party_id ?? task.assigned_to_user_id ?? "unassigned";
+}
+
+function getStatusFilterName(statusFilter: StatusFilter) {
+  return statusFilter ? statusLabels[statusFilter] : "Öll atriði";
 }
 
 function sortTasksForPrint(tasks: Task[], data: AppData) {
