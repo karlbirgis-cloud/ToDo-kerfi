@@ -545,9 +545,9 @@ function PrintableSimpleGroup({
       <div className="mt-5 grid gap-5">
         {unitGroups.map((unitGroup) => (
           <section key={unitGroup.unitName} className="print-break-inside-avoid">
-            <div className="border border-slate-900 bg-slate-900 px-3 py-2 text-white">
+            <div className="border border-slate-900 bg-white px-3 py-2 text-slate-950">
               <h2 className="text-base font-bold">{unitGroup.unitName}</h2>
-              <p className="mt-0.5 text-xs font-semibold text-slate-200">{unitGroup.tasks.length} atriði</p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-700">{unitGroup.tasks.length} atriði</p>
             </div>
             <table className="w-full border-collapse border-x border-b border-slate-900 text-left text-[10px] leading-tight">
               <thead>
