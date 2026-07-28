@@ -123,10 +123,10 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
               </label>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
+              <button
                 type="button"
                 disabled={filteredTasks.length === 0}
-                className="border border-slate-300 !bg-slate-100 !text-slate-900 shadow-none hover:!bg-slate-200 disabled:!bg-slate-100 disabled:!text-slate-400"
+                className="touch-target inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 shadow-none transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-55"
                 onClick={() => printTasks({
                   locationName,
                   mode: "simple",
@@ -138,7 +138,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                 })}
               >
                 <Printer className="h-4 w-4" /> Prenta einfalda skýrslu
-              </Button>
+              </button>
               <Button
                 type="button"
                 disabled={filteredTasks.length === 0}
