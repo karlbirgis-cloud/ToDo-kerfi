@@ -126,7 +126,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
               <Button
                 type="button"
                 disabled={filteredTasks.length === 0}
-                className="bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
+                className="border border-slate-300 !bg-slate-100 !text-slate-900 shadow-none hover:!bg-slate-200 disabled:!bg-slate-100 disabled:!text-slate-400"
                 onClick={() => printTasks({
                   locationName,
                   mode: "simple",
