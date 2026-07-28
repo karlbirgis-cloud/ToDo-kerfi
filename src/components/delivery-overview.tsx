@@ -15,6 +15,7 @@ const INSPECTION_TYPE_NAME = "Loka skoðun fyrir afhendingu";
 
 type PrintGroup = {
   locationName: string;
+  mode: "detailed" | "simple";
   printId: number;
   printImageUrls?: Record<string, string>;
   responsiblePartyName?: string;
@@ -74,7 +75,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
 
   async function printTasks(group: PrintGroup) {
     const sortedTasks = sortTasksForPrint(group.tasks, data);
-    const printImageUrls = await createPrintImageUrls(sortedTasks, data);
+    const printImageUrls = group.mode === "detailed" ? await createPrintImageUrls(sortedTasks, data) : undefined;
     setPrintGroup({ ...group, tasks: sortedTasks, printImageUrls });
   }
 
@@ -121,21 +122,40 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                 </select>
               </label>
             </div>
-            <Button
-              type="button"
-              disabled={filteredTasks.length === 0}
-              className="bg-blueprint hover:bg-blue-700 disabled:bg-slate-300"
-              onClick={() => printTasks({
-                locationName,
-                printId: Date.now(),
-                responsiblePartyName: selectedResponsiblePartyName,
-                statusFilterName: selectedStatusFilterName,
-                tasks: filteredTasks,
-                unitName: responsibleFilterId ? "Allar íbúðir - síað eftir ábyrgðaraðila" : "Allar íbúðir"
-              })}
-            >
-              <Printer className="h-4 w-4" /> Prenta sýnileg atriði
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                disabled={filteredTasks.length === 0}
+                className="bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
+                onClick={() => printTasks({
+                  locationName,
+                  mode: "simple",
+                  printId: Date.now(),
+                  responsiblePartyName: selectedResponsiblePartyName,
+                  statusFilterName: selectedStatusFilterName,
+                  tasks: filteredTasks,
+                  unitName: responsibleFilterId ? "Allar íbúðir - síað eftir ábyrgðaraðila" : "Allar íbúðir"
+                })}
+              >
+                <Printer className="h-4 w-4" /> Prenta einfalda skýrslu
+              </Button>
+              <Button
+                type="button"
+                disabled={filteredTasks.length === 0}
+                className="bg-blueprint hover:bg-blue-700 disabled:bg-slate-300"
+                onClick={() => printTasks({
+                  locationName,
+                  mode: "detailed",
+                  printId: Date.now(),
+                  responsiblePartyName: selectedResponsiblePartyName,
+                  statusFilterName: selectedStatusFilterName,
+                  tasks: filteredTasks,
+                  unitName: responsibleFilterId ? "Allar íbúðir - síað eftir ábyrgðaraðila" : "Allar íbúðir"
+                })}
+              >
+                <Printer className="h-4 w-4" /> Prenta sýnileg atriði
+              </Button>
+            </div>
           </div>
           <UnitSections
             groups={unitGroups}
@@ -256,6 +276,7 @@ function UnitSections({
               className="bg-white text-slate-900 hover:bg-slate-100"
               onClick={() => onPrint({
                 locationName,
+                mode: "detailed",
                 printId: Date.now(),
                 responsiblePartyName,
                 statusFilterName,
@@ -381,6 +402,10 @@ function DeliveryStatusSelect({ task, onChange }: { task: Task; onChange: (statu
 function PrintableGroup({ group, data, pageTitle }: { group: PrintGroup; data: AppData; pageTitle: string }) {
   const generatedAt = new Intl.DateTimeFormat("is-IS", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
 
+  if (group.mode === "simple") {
+    return <PrintableSimpleGroup group={group} data={data} generatedAt={generatedAt} pageTitle={pageTitle} />;
+  }
+
   return (
     <section className="print-only print-report bg-white p-7 text-ink">
       <div className="border-b-2 border-slate-900 pb-5">
@@ -452,6 +477,75 @@ function PrintableGroup({ group, data, pageTitle }: { group: PrintGroup; data: A
   );
 }
 
+function PrintableSimpleGroup({
+  group,
+  data,
+  generatedAt,
+  pageTitle
+}: {
+  group: PrintGroup;
+  data: AppData;
+  generatedAt: string;
+  pageTitle: string;
+}) {
+  const unitGroups = getSimplePrintUnitGroups(group.tasks, data);
+
+  return (
+    <section className="print-only print-report bg-white p-6 text-ink">
+      <div className="border-b-2 border-slate-900 pb-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Einföld skýrsla</p>
+        <h1 className="mt-1 text-2xl font-bold">{pageTitle}</h1>
+        <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+          <PrintDetail label="Gata" value={group.locationName} />
+          <PrintDetail label="Íbúð" value={group.unitName} />
+          <PrintDetail label="Staða" value={group.statusFilterName ?? "Öll atriði"} />
+          <PrintDetail label="Ábyrgðaraðili" value={group.responsiblePartyName ?? "Allir"} />
+          <PrintDetail label="Tegund" value={INSPECTION_TYPE_NAME} />
+          <PrintDetail label="Útbúin" value={`${generatedAt} · ${group.tasks.length} atriði`} />
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-5">
+        {unitGroups.map((unitGroup) => (
+          <section key={unitGroup.unitName} className="print-break-inside-avoid">
+            <div className="border border-slate-900 bg-slate-900 px-3 py-2 text-white">
+              <h2 className="text-base font-bold">{unitGroup.unitName}</h2>
+              <p className="mt-0.5 text-xs font-semibold text-slate-200">{unitGroup.tasks.length} atriði</p>
+            </div>
+            <table className="w-full border-collapse border-x border-b border-slate-900 text-left text-[10px] leading-tight">
+              <thead>
+                <tr className="bg-slate-100 text-[9px] font-bold uppercase text-slate-600">
+                  <SimplePrintTh>Rými</SimplePrintTh>
+                  <SimplePrintTh>Titill</SimplePrintTh>
+                  <SimplePrintTh>Lýsing</SimplePrintTh>
+                  <SimplePrintTh>Flokkur</SimplePrintTh>
+                  <SimplePrintTh>Ábyrgðaraðili</SimplePrintTh>
+                  <SimplePrintTh>Staða</SimplePrintTh>
+                </tr>
+              </thead>
+              <tbody>
+                {unitGroup.tasks.map((task) => {
+                  const row = getTaskRow(task, data);
+                  return (
+                    <tr key={task.id} className="border-t border-slate-300">
+                      <SimplePrintTd>{row.section}</SimplePrintTd>
+                      <SimplePrintTd className="font-bold text-slate-900">{task.title}</SimplePrintTd>
+                      <SimplePrintTd>{task.description || "-"}</SimplePrintTd>
+                      <SimplePrintTd>{row.category}</SimplePrintTd>
+                      <SimplePrintTd>{row.assignee ?? "Óúthlutað"}</SimplePrintTd>
+                      <SimplePrintTd>{statusLabels[task.status]}</SimplePrintTd>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PrintDetail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -468,6 +562,14 @@ function PrintBoxRow({ label, value }: { label: string; value: string }) {
       <dd className="font-bold text-slate-900">{value}</dd>
     </div>
   );
+}
+
+function SimplePrintTh({ children }: { children: React.ReactNode }) {
+  return <th className="border-r border-slate-300 px-2 py-1.5 align-top last:border-r-0">{children}</th>;
+}
+
+function SimplePrintTd({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <td className={cn("border-r border-slate-200 px-2 py-1.5 align-top text-slate-700 last:border-r-0", className)}>{children}</td>;
 }
 
 function getTaskRow(task: Task, data: AppData) {
@@ -507,6 +609,28 @@ function getResponsibleFilterId(task: Task) {
 
 function getStatusFilterName(statusFilter: StatusFilter) {
   return statusFilter ? statusLabels[statusFilter] : "Öll atriði";
+}
+
+function getSimplePrintUnitGroups(tasks: Task[], data: AppData) {
+  const groups = new Map<string, { tasks: Task[]; unitName: string }>();
+
+  tasks.forEach((task) => {
+    const unit = data.units.find((item) => item.id === task.unit_id);
+    const key = unit?.id ?? `unknown-${task.unit_id}`;
+    const current = groups.get(key);
+
+    if (current) {
+      current.tasks.push(task);
+      return;
+    }
+
+    groups.set(key, {
+      tasks: [task],
+      unitName: unit?.name ?? "Óþekkt íbúð"
+    });
+  });
+
+  return Array.from(groups.values());
 }
 
 function sortTasksForPrint(tasks: Task[], data: AppData) {
