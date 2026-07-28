@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Printer } from "lucide-react";
+import { AlertTriangle, Printer } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button, Card, PageHeader, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
@@ -296,14 +296,15 @@ function UnitSections({
 
 function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   const router = useRouter();
-  const { updateTaskStatus } = useAppData();
+  const { updateTask, updateTaskStatus } = useAppData();
 
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1020px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
           <thead className="bg-white text-xs font-bold uppercase text-slate-500">
             <tr>
+              <Th>Mikilvægt</Th>
               <Th>Rými</Th>
               <Th>Titill</Th>
               <Th>Lýsing</Th>
@@ -324,8 +325,14 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") router.push(`/tasks/${task.id}`);
                   }}
-                  className={cn("cursor-pointer border-l-4 transition hover:bg-blue-50/50 focus:bg-blue-50 focus:outline-none", getStatusTone(task.status))}
+                  className={cn("cursor-pointer border-l-4 transition focus:outline-none", getTaskRowTone(task))}
                 >
+                  <Td>
+                    <ImportantButton
+                      task={task}
+                      onToggle={() => updateTask(task.id, { priority: task.priority === "urgent" ? "medium" : "urgent" })}
+                    />
+                  </Td>
                   <Td>{row.section}</Td>
                   <Td className="font-bold text-ink">{task.title}</Td>
                   <Td className="max-w-md text-slate-600"><span className="line-clamp-2">{task.description || "-"}</span></Td>
@@ -353,9 +360,13 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") router.push(`/tasks/${task.id}`);
               }}
-              className={cn("rounded-md border border-l-4 bg-white p-3 text-left shadow-sm", getStatusTone(task.status))}
+              className={cn("rounded-md border border-l-4 p-3 text-left shadow-sm", getTaskCardTone(task))}
             >
               <div className="flex flex-wrap gap-2">
+                <ImportantButton
+                  task={task}
+                  onToggle={() => updateTask(task.id, { priority: task.priority === "urgent" ? "medium" : "urgent" })}
+                />
                 <DeliveryStatusSelect task={task} onChange={(status) => updateTaskStatus(task.id, status)} />
                 <UserPill name={row.assignee} />
               </div>
@@ -371,6 +382,32 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
         })}
       </div>
     </>
+  );
+}
+
+function ImportantButton({ task, onToggle }: { task: Task; onToggle: () => void }) {
+  const isImportant = task.priority === "urgent";
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+      className={cn(
+        "inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-2.5 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-red-200",
+        isImportant
+          ? "border-red-300 bg-red-600 text-white hover:bg-red-700"
+          : "border-slate-300 bg-white text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+      )}
+      aria-pressed={isImportant}
+      aria-label={`${isImportant ? "Afmerkja" : "Merkja"} mikilvægt atriði: ${task.title}`}
+    >
+      <AlertTriangle className="h-4 w-4" />
+      Mikilvægt
+    </button>
   );
 }
 
@@ -527,7 +564,7 @@ function PrintableSimpleGroup({
                 {unitGroup.tasks.map((task) => {
                   const row = getTaskRow(task, data);
                   return (
-                    <tr key={task.id} className="border-t border-slate-300">
+                    <tr key={task.id} className={cn("border-t border-slate-300", task.priority === "urgent" ? "bg-red-50 text-red-950" : undefined)}>
                       <SimplePrintTd>{row.section}</SimplePrintTd>
                       <SimplePrintTd className="font-bold text-slate-900">{task.title}</SimplePrintTd>
                       <SimplePrintTd>{task.description || "-"}</SimplePrintTd>
@@ -663,6 +700,22 @@ function getStatusTone(status: TaskStatus) {
   };
 
   return tones[status];
+}
+
+function getTaskRowTone(task: Task) {
+  if (task.priority === "urgent") {
+    return "border-l-red-600 bg-red-50 hover:bg-red-100/80 focus:bg-red-100";
+  }
+
+  return cn(getStatusTone(task.status), "hover:bg-blue-50/50 focus:bg-blue-50");
+}
+
+function getTaskCardTone(task: Task) {
+  if (task.priority === "urgent") {
+    return "border-red-300 border-l-red-600 bg-red-50";
+  }
+
+  return cn("border-slate-200 bg-white", getStatusTone(task.status));
 }
 
 function getStatusSelectTone(status: TaskStatus) {
