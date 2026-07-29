@@ -68,6 +68,15 @@ export const finalDeliveryTemplate: InspectionTemplate = {
   updated_at: now
 };
 
+export const deliveryTemplate: InspectionTemplate = {
+  id: "inspection_template_delivery",
+  inspection_type_id: "inspection_type_3",
+  name: "Afhending",
+  is_active: true,
+  created_at: now,
+  updated_at: now
+};
+
 const finalDeliveryChecklistSource = [
   ["ANDYRI", "Útihurð", "Yfirborð hurðar, karms og þröskuldar er í lagi", "cat_5", "sub_cat_5_8"],
   ["ANDYRI", "Skápar", "Yfirborð, bæði hurða og hliða er í lagi og allar hillur til staðar", "cat_5", "sub_cat_5_6"],
@@ -137,6 +146,19 @@ const finalDeliveryChecklistSource = [
 export const finalDeliveryChecklistItems: InspectionChecklistItem[] = finalDeliveryChecklistSource.map((item, index) => ({
   id: `inspection_item_final_delivery_${index + 1}`,
   template_id: finalDeliveryTemplate.id,
+  section: item[0],
+  title: item[1],
+  description: item[2],
+  category_id: item[3],
+  subcategory_id: item[4],
+  sort_order: index + 1,
+  created_at: now,
+  updated_at: now
+}));
+
+export const deliveryChecklistItems: InspectionChecklistItem[] = finalDeliveryChecklistSource.map((item, index) => ({
+  id: `inspection_item_delivery_${index + 1}`,
+  template_id: deliveryTemplate.id,
   section: item[0],
   title: item[1],
   description: item[2],
@@ -225,8 +247,8 @@ export const initialData: AppData = {
   units,
   categories: defaultCategories,
   inspection_types: defaultInspectionTypes,
-  inspection_templates: [finalDeliveryTemplate],
-  inspection_checklist_items: finalDeliveryChecklistItems,
+  inspection_templates: [finalDeliveryTemplate, deliveryTemplate],
+  inspection_checklist_items: [...finalDeliveryChecklistItems, ...deliveryChecklistItems],
   inspection_runs: [],
   inspection_run_items: [],
   subcategories: defaultSubcategories,

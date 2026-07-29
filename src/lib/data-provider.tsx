@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
-import { defaultInspectionTypes, defaultSubcategories, finalDeliveryChecklistItems, finalDeliveryTemplate, initialData } from "./mock-data";
+import { defaultInspectionTypes, defaultSubcategories, deliveryChecklistItems, deliveryTemplate, finalDeliveryChecklistItems, finalDeliveryTemplate, initialData } from "./mock-data";
 import { hasSupabaseEnv } from "./supabase/client";
 import type { AccessScope, AppData, InspectionRunItemStatus, InspectionType, Profile, ResponsibleParty, Task, TaskPriority, TaskStatus, Unit, UnitType } from "./types";
 import { makeId, todayIso } from "./utils";
@@ -153,6 +153,8 @@ function hydrateData(): AppData {
 
 function normalizeData(data: AppData): AppData {
   const inspectionTypes = data.inspection_types ?? [];
+  const defaultInspectionTemplates = [finalDeliveryTemplate, deliveryTemplate];
+  const defaultInspectionChecklistItems = [...finalDeliveryChecklistItems, ...deliveryChecklistItems];
   const mergedInspectionTypes = [
     ...inspectionTypes,
     ...defaultInspectionTypes.filter((defaultType) => !inspectionTypes.some((inspectionType) => inspectionType.id === defaultType.id || inspectionType.name === defaultType.name))
@@ -161,10 +163,10 @@ function normalizeData(data: AppData): AppData {
   const inspectionChecklistItems = data.inspection_checklist_items ?? [];
   const normalizedInspectionChecklistItems = [
     ...inspectionChecklistItems.map((item) => {
-      const defaultItem = finalDeliveryChecklistItems.find((candidate) => candidate.id === item.id);
+      const defaultItem = defaultInspectionChecklistItems.find((candidate) => candidate.id === item.id);
       return defaultItem ? { ...item, ...defaultItem, created_at: item.created_at } : item;
     }),
-    ...finalDeliveryChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
+    ...defaultInspectionChecklistItems.filter((defaultItem) => !inspectionChecklistItems.some((item) => item.id === defaultItem.id))
   ];
   const subcategories = data.subcategories ?? [];
   const mergedSubcategories = [
@@ -194,9 +196,10 @@ function normalizeData(data: AppData): AppData {
     ...data,
     responsible_parties: data.responsible_parties ?? [],
     inspection_types: mergedInspectionTypes,
-    inspection_templates: inspectionTemplates.some((template) => template.id === finalDeliveryTemplate.id)
-      ? inspectionTemplates
-      : [...inspectionTemplates, finalDeliveryTemplate],
+    inspection_templates: [
+      ...inspectionTemplates,
+      ...defaultInspectionTemplates.filter((defaultTemplate) => !inspectionTemplates.some((template) => template.id === defaultTemplate.id))
+    ],
     inspection_checklist_items: normalizedInspectionChecklistItems,
     inspection_runs: data.inspection_runs ?? [],
     inspection_run_items: data.inspection_run_items ?? [],
