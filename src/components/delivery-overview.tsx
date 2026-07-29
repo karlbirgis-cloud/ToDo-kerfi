@@ -11,13 +11,16 @@ import type { AppData, Task, TaskStatus, Unit } from "@/lib/types";
 import { cn, getTaskResponsiblePartyName } from "@/lib/utils";
 
 const PROJECT_NAME = "Bryggjuhverfi";
-const INSPECTION_TYPE_NAME = "Loka skoðun fyrir afhendingu";
+const BEFORE_DELIVERY_INSPECTION_TYPE_NAME = "Loka skoðun fyrir afhendingu";
+const HANDOVER_INSPECTION_TYPE_NAME = "Afhending";
+const DELIVERY_INSPECTION_TYPE_NAMES = [BEFORE_DELIVERY_INSPECTION_TYPE_NAME, HANDOVER_INSPECTION_TYPE_NAME];
 
 type PrintGroup = {
   locationName: string;
   mode: "detailed" | "simple";
   printId: number;
   printImageUrls?: Record<string, string>;
+  inspectionTypeFilterName?: string;
   responsiblePartyName?: string;
   statusFilterName?: string;
   tasks: Task[];
@@ -30,16 +33,22 @@ type UnitGroup = {
 };
 
 type StatusFilter = TaskStatus | "";
+type InspectionTypeFilter = "" | "before_delivery" | "handover";
 
 export function DeliveryOverview({ locationName, title }: { locationName: string; title: string }) {
   const { data } = useAppData();
   const [printGroup, setPrintGroup] = useState<PrintGroup | null>(null);
+  const [inspectionTypeFilter, setInspectionTypeFilter] = useState<InspectionTypeFilter>("");
   const [responsibleFilterId, setResponsibleFilterId] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const tasks = useMemo(() => getDeliveryTasks(data, locationName), [data, locationName]);
+  const inspectionTypeFilteredTasks = useMemo(
+    () => tasks.filter((task) => taskMatchesInspectionTypeFilter(task, data, inspectionTypeFilter)),
+    [data, inspectionTypeFilter, tasks]
+  );
   const statusFilteredTasks = useMemo(
-    () => statusFilter ? tasks.filter((task) => task.status === statusFilter) : tasks,
-    [statusFilter, tasks]
+    () => statusFilter ? inspectionTypeFilteredTasks.filter((task) => task.status === statusFilter) : inspectionTypeFilteredTasks,
+    [inspectionTypeFilteredTasks, statusFilter]
   );
   const responsibleOptions = useMemo(() => getResponsibleFilterOptions(data, statusFilteredTasks), [data, statusFilteredTasks]);
   const filteredTasks = useMemo(
@@ -48,6 +57,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
   );
   const unitGroups = useMemo(() => getUnitGroups(data, locationName, filteredTasks), [data, locationName, filteredTasks]);
   const selectedResponsiblePartyName = responsibleOptions.find((option) => option.id === responsibleFilterId)?.name;
+  const selectedInspectionTypeFilterName = getInspectionTypeFilterName(inspectionTypeFilter);
   const selectedStatusFilterName = getStatusFilterName(statusFilter);
 
   useEffect(() => {
@@ -82,16 +92,16 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
   return (
     <AppShell>
       <div className="no-print">
-        <PageHeader title={title} kicker="Loka skoðun fyrir afhendingu" />
+        <PageHeader title={title} kicker="Athugasemdir fyrir og við afhendingu" />
         <Card className="p-0">
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir íbúðum</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {filteredTasks.length} af {tasks.length} atriðum í {PROJECT_NAME}, {locationName}, merkt {INSPECTION_TYPE_NAME}.
+              {filteredTasks.length} af {tasks.length} athugasemdum í {PROJECT_NAME}, {locationName}, fyrir afhendingu og við afhendingu.
             </p>
           </div>
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[40rem]">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:min-w-[58rem]">
               <label className="grid gap-1 text-sm font-semibold text-slate-700">
                 Staða
                 <select
@@ -121,6 +131,21 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                   ))}
                 </select>
               </label>
+              <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                Tegund úttektar
+                <select
+                  value={inspectionTypeFilter}
+                  onChange={(event) => {
+                    setInspectionTypeFilter(event.target.value as InspectionTypeFilter);
+                    setResponsibleFilterId("");
+                  }}
+                  className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+                >
+                  <option value="">Allar athugasemdir</option>
+                  <option value="before_delivery">Fyrir afhendingu</option>
+                  <option value="handover">Við afhendingu</option>
+                </select>
+              </label>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
@@ -131,6 +156,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                   locationName,
                   mode: "simple",
                   printId: Date.now(),
+                  inspectionTypeFilterName: selectedInspectionTypeFilterName,
                   responsiblePartyName: selectedResponsiblePartyName,
                   statusFilterName: selectedStatusFilterName,
                   tasks: filteredTasks,
@@ -147,6 +173,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                   locationName,
                   mode: "detailed",
                   printId: Date.now(),
+                  inspectionTypeFilterName: selectedInspectionTypeFilterName,
                   responsiblePartyName: selectedResponsiblePartyName,
                   statusFilterName: selectedStatusFilterName,
                   tasks: filteredTasks,
@@ -161,6 +188,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
             groups={unitGroups}
             data={data}
             locationName={locationName}
+            inspectionTypeFilterName={selectedInspectionTypeFilterName}
             responsiblePartyName={selectedResponsiblePartyName}
             statusFilterName={selectedStatusFilterName}
             onPrint={printTasks}
@@ -186,7 +214,7 @@ function getDeliveryTasks(data: AppData, locationName: string) {
   );
   const inspectionTypeIds = new Set(
     data.inspection_types
-      .filter((inspectionType) => normalize(inspectionType.name) === normalize(INSPECTION_TYPE_NAME))
+      .filter((inspectionType) => DELIVERY_INSPECTION_TYPE_NAMES.some((name) => normalize(inspectionType.name) === normalize(name)))
       .map((inspectionType) => inspectionType.id)
   );
   const deliveryRunIds = new Set(
@@ -247,6 +275,7 @@ function UnitSections({
   groups,
   data,
   locationName,
+  inspectionTypeFilterName,
   responsiblePartyName,
   statusFilterName,
   onPrint
@@ -254,6 +283,7 @@ function UnitSections({
   groups: UnitGroup[];
   data: AppData;
   locationName: string;
+  inspectionTypeFilterName?: string;
   responsiblePartyName?: string;
   statusFilterName?: string;
   onPrint(group: PrintGroup): void;
@@ -278,6 +308,7 @@ function UnitSections({
                 locationName,
                 mode: "detailed",
                 printId: Date.now(),
+                inspectionTypeFilterName,
                 responsiblePartyName,
                 statusFilterName,
                 tasks: group.tasks,
@@ -453,7 +484,7 @@ function PrintableGroup({ group, data, pageTitle }: { group: PrintGroup; data: A
           <PrintDetail label="Íbúð" value={group.unitName} />
           <PrintDetail label="Staða" value={group.statusFilterName ?? "Öll atriði"} />
           <PrintDetail label="Ábyrgðaraðili" value={group.responsiblePartyName ?? "Allir"} />
-          <PrintDetail label="Tegund" value={INSPECTION_TYPE_NAME} />
+          <PrintDetail label="Tegund úttektar" value={group.inspectionTypeFilterName ?? "Allar athugasemdir"} />
           <PrintDetail label="Útbúin" value={`${generatedAt} · ${group.tasks.length} atriði`} />
         </div>
       </div>
@@ -537,7 +568,7 @@ function PrintableSimpleGroup({
           <PrintDetail label="Íbúð" value={group.unitName} />
           <PrintDetail label="Staða" value={group.statusFilterName ?? "Öll atriði"} />
           <PrintDetail label="Ábyrgðaraðili" value={group.responsiblePartyName ?? "Allir"} />
-          <PrintDetail label="Tegund" value={INSPECTION_TYPE_NAME} />
+          <PrintDetail label="Tegund úttektar" value={group.inspectionTypeFilterName ?? "Allar athugasemdir"} />
           <PrintDetail label="Útbúin" value={`${generatedAt} · ${group.tasks.length} atriði`} />
         </div>
       </div>
@@ -646,6 +677,32 @@ function getResponsibleFilterId(task: Task) {
 
 function getStatusFilterName(statusFilter: StatusFilter) {
   return statusFilter ? statusLabels[statusFilter] : "Öll atriði";
+}
+
+function getInspectionTypeFilterName(filter: InspectionTypeFilter) {
+  if (filter === "before_delivery") return "Fyrir afhendingu";
+  if (filter === "handover") return "Við afhendingu";
+  return "Allar athugasemdir";
+}
+
+function taskMatchesInspectionTypeFilter(task: Task, data: AppData, filter: InspectionTypeFilter) {
+  if (!filter) return true;
+
+  const inspectionTypeName = getTaskInspectionTypeName(task, data);
+  if (filter === "before_delivery") return normalize(inspectionTypeName) === normalize(BEFORE_DELIVERY_INSPECTION_TYPE_NAME);
+  return normalize(inspectionTypeName) === normalize(HANDOVER_INSPECTION_TYPE_NAME);
+}
+
+function getTaskInspectionTypeName(task: Task, data: AppData) {
+  if (task.inspection_type_id) {
+    return data.inspection_types.find((inspectionType) => inspectionType.id === task.inspection_type_id)?.name ?? "";
+  }
+
+  const runItem = task.inspection_run_item_id
+    ? data.inspection_run_items.find((item) => item.id === task.inspection_run_item_id)
+    : undefined;
+  const run = runItem ? data.inspection_runs.find((item) => item.id === runItem.run_id) : undefined;
+  return run ? data.inspection_types.find((inspectionType) => inspectionType.id === run.inspection_type_id)?.name ?? "" : "";
 }
 
 function getSimplePrintUnitGroups(tasks: Task[], data: AppData) {
