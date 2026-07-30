@@ -8,7 +8,7 @@ import { Button, Card, PageHeader, UserPill } from "@/components/ui";
 import { statusLabels } from "@/lib/labels";
 import { useAppData } from "@/lib/data-provider";
 import type { AppData, Task, TaskStatus, Unit } from "@/lib/types";
-import { cn, getTaskResponsiblePartyName } from "@/lib/utils";
+import { cn, formatDate, getTaskResponsiblePartyName } from "@/lib/utils";
 
 const PROJECT_NAME = "Bryggjuhverfi";
 const BEFORE_DELIVERY_INSPECTION_TYPE_NAME = "Loka skoðun fyrir afhendingu";
@@ -332,7 +332,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
           <thead className="bg-white text-xs font-bold uppercase text-slate-500">
             <tr>
               <Th>Mikilvægt</Th>
@@ -342,6 +342,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
               <Th>Flokkur</Th>
               <Th>Ábyrgðaraðili</Th>
               <Th>Staða</Th>
+              <Th>Stofnað</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -372,6 +373,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
                   <Td>
                     <DeliveryStatusSelect task={task} onChange={(status) => updateTaskStatus(task.id, status)} />
                   </Td>
+                  <Td>{formatDate(task.created_at)}</Td>
                 </tr>
               );
             })}
@@ -407,6 +409,7 @@ function DeliveryTaskTable({ tasks, data }: { tasks: Task[]; data: AppData }) {
                 <Detail label="Rými" value={row.section} />
                 <Detail label="Flokkur" value={row.category} />
                 <Detail label="Staða" value={statusLabels[task.status]} />
+                <Detail label="Stofnað" value={formatDate(task.created_at)} />
               </dl>
             </div>
           );
@@ -589,6 +592,7 @@ function PrintableSimpleGroup({
                   <SimplePrintTh>Flokkur</SimplePrintTh>
                   <SimplePrintTh>Ábyrgðaraðili</SimplePrintTh>
                   <SimplePrintTh>Staða</SimplePrintTh>
+                  <SimplePrintTh>Stofnað</SimplePrintTh>
                 </tr>
               </thead>
               <tbody>
@@ -602,6 +606,7 @@ function PrintableSimpleGroup({
                       <SimplePrintTd>{row.category}</SimplePrintTd>
                       <SimplePrintTd>{row.assignee ?? "Óúthlutað"}</SimplePrintTd>
                       <SimplePrintTd>{statusLabels[task.status]}</SimplePrintTd>
+                      <SimplePrintTd>{formatDate(task.created_at)}</SimplePrintTd>
                     </tr>
                   );
                 })}
