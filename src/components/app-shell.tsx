@@ -9,8 +9,7 @@ import { useAppData } from "@/lib/data-provider";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/afhending-b25-27", label: "Afhending B25-27", mobileLabel: "B25-27", icon: ClipboardCheck },
-  { href: "/afhending-b29-31", label: "Afhending B29-31", mobileLabel: "B29-31", icon: ClipboardCheck },
+  { href: "/afhending-b25-27-og-b29-31", label: "B25-27 og B29-31", mobileLabel: "B25/B29", icon: ClipboardCheck },
   { href: "/safety-gjukabryggja-10-12", label: "Öryggi G10-12", mobileLabel: "G10-12", icon: ShieldCheck },
   { href: "/dashboard", label: "Dashboard", mobileLabel: "Yfirlit", icon: BarChart3 },
   { href: "/inspection", label: "Úttekt", mobileLabel: "Úttekt", icon: ClipboardCheck },

@@ -1,5 +1,5 @@
-import { DeliveryOverview } from "@/components/delivery-overview";
+import { redirect } from "next/navigation";
 
 export default function DeliveryB2527Page() {
-  return <DeliveryOverview locationName="Buðlabryggja 25-27" title="Afhending B25-27" />;
+  redirect("/afhending-b25-27-og-b29-31");
 }

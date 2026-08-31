@@ -30,18 +30,31 @@ type PrintGroup = {
 type UnitGroup = {
   tasks: Task[];
   unit: Unit;
+  unitLabel: string;
 };
 
 type StatusFilter = TaskStatus | "";
 type InspectionTypeFilter = "" | "before_delivery" | "handover";
 
-export function DeliveryOverview({ locationName, title }: { locationName: string; title: string }) {
+export function DeliveryOverview({
+  locationLabel,
+  locationName,
+  locationNames,
+  title
+}: {
+  locationLabel?: string;
+  locationName?: string;
+  locationNames?: string[];
+  title: string;
+}) {
   const { data } = useAppData();
   const [printGroup, setPrintGroup] = useState<PrintGroup | null>(null);
   const [inspectionTypeFilter, setInspectionTypeFilter] = useState<InspectionTypeFilter>("");
   const [responsibleFilterId, setResponsibleFilterId] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
-  const tasks = useMemo(() => getDeliveryTasks(data, locationName), [data, locationName]);
+  const selectedLocationNames = useMemo(() => locationNames ?? (locationName ? [locationName] : []), [locationName, locationNames]);
+  const selectedLocationLabel = locationLabel ?? selectedLocationNames.join(" og ");
+  const tasks = useMemo(() => getDeliveryTasks(data, selectedLocationNames), [data, selectedLocationNames]);
   const inspectionTypeFilteredTasks = useMemo(
     () => tasks.filter((task) => taskMatchesInspectionTypeFilter(task, data, inspectionTypeFilter)),
     [data, inspectionTypeFilter, tasks]
@@ -55,7 +68,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
     () => responsibleFilterId ? statusFilteredTasks.filter((task) => getResponsibleFilterId(task) === responsibleFilterId) : statusFilteredTasks,
     [responsibleFilterId, statusFilteredTasks]
   );
-  const unitGroups = useMemo(() => getUnitGroups(data, locationName, filteredTasks), [data, locationName, filteredTasks]);
+  const unitGroups = useMemo(() => getUnitGroups(data, selectedLocationNames, filteredTasks), [data, selectedLocationNames, filteredTasks]);
   const selectedResponsiblePartyName = responsibleOptions.find((option) => option.id === responsibleFilterId)?.name;
   const selectedInspectionTypeFilterName = getInspectionTypeFilterName(inspectionTypeFilter);
   const selectedStatusFilterName = getStatusFilterName(statusFilter);
@@ -97,7 +110,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir íbúðum</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {filteredTasks.length} af {tasks.length} athugasemdum í {PROJECT_NAME}, {locationName}, fyrir afhendingu og við afhendingu.
+              {filteredTasks.length} af {tasks.length} athugasemdum í {PROJECT_NAME}, {selectedLocationLabel}, fyrir afhendingu og við afhendingu.
             </p>
           </div>
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-end lg:justify-between">
@@ -153,7 +166,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                 disabled={filteredTasks.length === 0}
                 className="touch-target inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 shadow-none transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-55"
                 onClick={() => printTasks({
-                  locationName,
+                  locationName: selectedLocationLabel,
                   mode: "simple",
                   printId: Date.now(),
                   inspectionTypeFilterName: selectedInspectionTypeFilterName,
@@ -170,7 +183,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
                 disabled={filteredTasks.length === 0}
                 className="bg-blueprint hover:bg-blue-700 disabled:bg-slate-300"
                 onClick={() => printTasks({
-                  locationName,
+                  locationName: selectedLocationLabel,
                   mode: "detailed",
                   printId: Date.now(),
                   inspectionTypeFilterName: selectedInspectionTypeFilterName,
@@ -187,7 +200,7 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
           <UnitSections
             groups={unitGroups}
             data={data}
-            locationName={locationName}
+            locationName={selectedLocationLabel}
             inspectionTypeFilterName={selectedInspectionTypeFilterName}
             responsiblePartyName={selectedResponsiblePartyName}
             statusFilterName={selectedStatusFilterName}
@@ -201,15 +214,16 @@ export function DeliveryOverview({ locationName, title }: { locationName: string
   );
 }
 
-function getDeliveryTasks(data: AppData, locationName: string) {
+function getDeliveryTasks(data: AppData, locationNames: string[]) {
   const projectIds = new Set(
     data.projects
       .filter((project) => normalize(project.name) === normalize(PROJECT_NAME) || normalize(project.full_name).includes(normalize(PROJECT_NAME)))
       .map((project) => project.id)
   );
+  const normalizedLocationNames = new Set(locationNames.map(normalize));
   const locationIds = new Set(
     data.locations
-      .filter((location) => projectIds.has(location.project_id) && normalize(location.name) === normalize(locationName))
+      .filter((location) => projectIds.has(location.project_id) && normalizedLocationNames.has(normalize(location.name)))
       .map((location) => location.id)
   );
   const inspectionTypeIds = new Set(
@@ -238,14 +252,16 @@ function getDeliveryTasks(data: AppData, locationName: string) {
     .sort(sortTasks);
 }
 
-function getUnitGroups(data: AppData, locationName: string, tasks: Task[]) {
-  const locationIds = new Set(data.locations.filter((location) => normalize(location.name) === normalize(locationName)).map((location) => location.id));
+function getUnitGroups(data: AppData, locationNames: string[], tasks: Task[]) {
+  const normalizedLocationNames = new Set(locationNames.map(normalize));
+  const locationIds = new Set(data.locations.filter((location) => normalizedLocationNames.has(normalize(location.name))).map((location) => location.id));
   const taskUnitIds = new Set(tasks.map((task) => task.unit_id));
   const knownGroups: UnitGroup[] = data.units
     .filter((unit) => locationIds.has(unit.location_id) && taskUnitIds.has(unit.id))
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "is", { numeric: true, sensitivity: "base" }))
     .map((unit) => ({
       unit,
+      unitLabel: getUnitLabel(data, unit, locationNames.length > 1),
       tasks: tasks.filter((task) => task.unit_id === unit.id)
     }));
 
@@ -266,6 +282,7 @@ function getUnitGroups(data: AppData, locationName: string, tasks: Task[]) {
         created_at: "",
         updated_at: ""
       },
+      unitLabel: "Óþekkt íbúð",
       tasks: missingUnitTasks
     }
   ];
@@ -298,7 +315,7 @@ function UnitSections({
         <section key={group.unit.id} className="overflow-hidden rounded-md border border-slate-200">
           <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-900 px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-bold">{group.unit.name}</h2>
+              <h2 className="text-lg font-bold">{group.unitLabel}</h2>
               <p className="mt-0.5 text-sm font-semibold text-slate-200">{group.tasks.length} atriði</p>
             </div>
             <Button
@@ -312,7 +329,7 @@ function UnitSections({
                 responsiblePartyName,
                 statusFilterName,
                 tasks: group.tasks,
-                unitName: group.unit.name
+                unitName: group.unitLabel
               })}
             >
               <Printer className="h-4 w-4" /> Prenta PDF
@@ -578,7 +595,7 @@ function PrintableSimpleGroup({
 
       <div className="mt-5 grid gap-5">
         {unitGroups.map((unitGroup) => (
-          <section key={unitGroup.unitName} className="print-break-inside-avoid">
+          <section key={unitGroup.key} className="print-break-inside-avoid">
             <div className="border border-slate-900 bg-white px-3 py-2 text-slate-950">
               <h2 className="text-base font-bold">{unitGroup.unitName}</h2>
               <p className="mt-0.5 text-xs font-semibold text-slate-700">{unitGroup.tasks.length} atriði</p>
@@ -661,6 +678,18 @@ function getTaskRow(task: Task, data: AppData) {
   };
 }
 
+function getUnitLabel(data: AppData, unit: Unit, includeLocationPrefix: boolean) {
+  if (!includeLocationPrefix) return unit.name;
+
+  const location = data.locations.find((item) => item.id === unit.location_id);
+  const locationPrefix = location ? getShortLocationName(location.name) : "";
+  return locationPrefix ? `${locationPrefix} · ${unit.name}` : unit.name;
+}
+
+function getShortLocationName(locationName: string) {
+  return locationName.replace(/^Buðlabryggja\s*/i, "B");
+}
+
 function getResponsibleFilterOptions(data: AppData, tasks: Task[]) {
   const counts = new Map<string, { count: number; name: string }>();
 
@@ -711,11 +740,22 @@ function getTaskInspectionTypeName(task: Task, data: AppData) {
 }
 
 function getSimplePrintUnitGroups(tasks: Task[], data: AppData) {
-  const groups = new Map<string, { tasks: Task[]; unitName: string }>();
+  const unitIdsByName = new Map<string, Set<string>>();
+
+  tasks.forEach((task) => {
+    const unit = data.units.find((item) => item.id === task.unit_id);
+    const unitName = unit?.name ?? "Óþekkt íbúð";
+    const unitIds = unitIdsByName.get(unitName) ?? new Set<string>();
+    unitIds.add(unit?.id ?? `unknown-${task.unit_id}`);
+    unitIdsByName.set(unitName, unitIds);
+  });
+
+  const groups = new Map<string, { key: string; tasks: Task[]; unitName: string }>();
 
   tasks.forEach((task) => {
     const unit = data.units.find((item) => item.id === task.unit_id);
     const key = unit?.id ?? `unknown-${task.unit_id}`;
+    const unitName = unit?.name ?? "Óþekkt íbúð";
     const current = groups.get(key);
 
     if (current) {
@@ -724,8 +764,9 @@ function getSimplePrintUnitGroups(tasks: Task[], data: AppData) {
     }
 
     groups.set(key, {
+      key,
       tasks: [task],
-      unitName: unit?.name ?? "Óþekkt íbúð"
+      unitName: unit && (unitIdsByName.get(unitName)?.size ?? 0) > 1 ? getUnitLabel(data, unit, true) : unitName
     });
   });
 
