@@ -232,7 +232,17 @@ export default function InspectionPage() {
           {!unit ? (
             <EmptyState title="Veldu rými til að byrja" body="Veldu verkefni, götu og íbúð eða rými til að opna loka skoðunina." />
           ) : !template ? (
-            <EmptyState title="Ekkert sniðmát tengt tegundinni" body="Þessi tegund úttektar er til, en er ekki með tékklista ennþá." />
+            <ManualInspectionIssuePanel
+              data={data}
+              inspectionTypeId={inspectionTypeId}
+              locationId={locationId}
+              locationName={location?.name}
+              projectId={projectId}
+              projectName={project?.full_name}
+              unitId={unitId}
+              unitName={unit.name}
+              onSaved={() => flushPendingCloudSave().catch(() => undefined)}
+            />
           ) : (
             <>
               <Card>
@@ -304,6 +314,204 @@ export default function InspectionPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function ManualInspectionIssuePanel({
+  data,
+  inspectionTypeId,
+  locationId,
+  locationName,
+  onSaved,
+  projectId,
+  projectName,
+  unitId,
+  unitName
+}: {
+  data: AppData;
+  inspectionTypeId: string;
+  locationId: string;
+  locationName?: string;
+  onSaved(): void;
+  projectId: string;
+  projectName?: string;
+  unitId: string;
+  unitName: string;
+}) {
+  const { addTaskImages, createTask, flushPendingCloudSave } = useAppData();
+  const activeCategories = data.categories.filter((category) => category.is_active).sort((a, b) => a.sort_order - b.sort_order);
+  const [categoryId, setCategoryId] = useState(activeCategories[0]?.id ?? "");
+  const subcategories = data.subcategories
+    .filter((subcategory) => subcategory.category_id === categoryId && subcategory.is_active)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const [subcategoryId, setSubcategoryId] = useState(subcategories[0]?.id ?? "");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [responsiblePartyId, setResponsiblePartyId] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (!subcategories.some((subcategory) => subcategory.id === subcategoryId)) {
+      setSubcategoryId(subcategories[0]?.id ?? "");
+    }
+  }, [subcategoryId, subcategories]);
+
+  useEffect(() => {
+    return () => imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+  }, [imagePreviews]);
+
+  return (
+    <Card>
+      <div className="mb-4">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+          <AlertTriangle className="h-5 w-5" /> Stofna nýtt atriði
+        </h2>
+        <p className="mt-1 text-sm font-semibold text-slate-500">{projectName} · {locationName} · {unitName}</p>
+      </div>
+      <form
+        className="grid gap-3"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!categoryId || !subcategoryId || !title.trim() || !description.trim() || isSubmitting) return;
+
+          setIsSubmitting(true);
+          setErrorMessage("");
+          try {
+            const taskId = createTask({
+              project_id: projectId,
+              location_id: locationId,
+              unit_id: unitId,
+              category_id: categoryId,
+              subcategory_id: subcategoryId,
+              title: title.trim(),
+              description: description.trim(),
+              responsible_party_id: responsiblePartyId || undefined,
+              inspection_type_id: inspectionTypeId || undefined,
+              priority: "medium"
+            });
+
+            if (!taskId) throw new Error("Ekki tókst að stofna atriði.");
+            if (imageFiles.length > 0) await addTaskImages(taskId, imageFiles);
+            await flushPendingCloudSave();
+
+            setTitle("");
+            setDescription("");
+            setResponsiblePartyId("");
+            setImageFiles([]);
+            setImagePreviews((current) => {
+              current.forEach((preview) => URL.revokeObjectURL(preview));
+              return [];
+            });
+            onSaved();
+          } catch (error) {
+            console.error(error);
+            setErrorMessage("Atriðið var ekki vistað. Reyndu aftur eða bættu mynd við á atriðasíðunni.");
+          } finally {
+            setIsSubmitting(false);
+          }
+        }}
+      >
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Titill
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+            placeholder="Stutt heiti á atriði"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Lýsing
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            rows={4}
+            className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+            placeholder="Skrifaðu hvað þarf að laga eða skoða"
+            required
+          />
+        </label>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Flokkur
+            <select
+              value={categoryId}
+              onChange={(event) => {
+                const nextCategoryId = event.target.value;
+                const nextSubcategoryId = data.subcategories
+                  .filter((subcategory) => subcategory.category_id === nextCategoryId && subcategory.is_active)
+                  .sort((a, b) => a.sort_order - b.sort_order)[0]?.id ?? "";
+                setCategoryId(nextCategoryId);
+                setSubcategoryId(nextSubcategoryId);
+              }}
+              className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              required
+            >
+              {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Undirflokkur
+            <select
+              value={subcategoryId}
+              onChange={(event) => setSubcategoryId(event.target.value)}
+              className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+              required
+            >
+              {subcategories.map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Úthlutun á
+            <select
+              value={responsiblePartyId}
+              onChange={(event) => setResponsiblePartyId(event.target.value)}
+              className="touch-target rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+            >
+              <option value="">Óúthlutað</option>
+              {data.responsible_parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="grid gap-2 text-sm font-semibold text-slate-700">
+          Myndir
+          <span className="touch-target flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-sm font-bold text-slate-700 transition hover:border-blueprint hover:bg-blue-50">
+            <Camera className="h-4 w-4" /> Bæta við mynd
+            <input
+              className="sr-only"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                setErrorMessage("");
+                setImageFiles(files);
+                setImagePreviews((current) => {
+                  current.forEach((preview) => URL.revokeObjectURL(preview));
+                  return files.map((file) => URL.createObjectURL(file));
+                });
+              }}
+            />
+          </span>
+        </label>
+        {imagePreviews.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {imagePreviews.map((preview, index) => (
+              <img key={preview} src={preview} alt={`Mynd ${index + 1}`} className="aspect-square rounded-md border border-slate-200 bg-slate-100 object-contain" />
+            ))}
+          </div>
+        ) : null}
+        <Button disabled={!categoryId || !subcategoryId || !title.trim() || !description.trim() || isSubmitting}>
+          <Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna atriði"}
+        </Button>
+        {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
+      </form>
+    </Card>
   );
 }
 
