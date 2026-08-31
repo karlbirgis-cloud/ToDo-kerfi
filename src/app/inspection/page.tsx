@@ -375,7 +375,7 @@ function ManualInspectionIssuePanel({
         className="grid gap-3"
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!categoryId || !subcategoryId || !title.trim() || !description.trim() || isSubmitting) return;
+          if (!categoryId || !subcategoryId || !title.trim() || isSubmitting) return;
 
           setIsSubmitting(true);
           setErrorMessage("");
@@ -387,7 +387,7 @@ function ManualInspectionIssuePanel({
               category_id: categoryId,
               subcategory_id: subcategoryId,
               title: title.trim(),
-              description: description.trim(),
+              description: description.trim() || undefined,
               responsible_party_id: responsiblePartyId || undefined,
               inspection_type_id: inspectionTypeId || undefined,
               priority: "medium"
@@ -431,8 +431,7 @@ function ManualInspectionIssuePanel({
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
             className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-            placeholder="Skrifaðu hvað þarf að laga eða skoða"
-            required
+            placeholder="Skrifaðu hvað þarf að laga eða skoða, ef þörf er á nánari lýsingu"
           />
         </label>
         <div className="grid gap-3 md:grid-cols-3">
@@ -506,7 +505,7 @@ function ManualInspectionIssuePanel({
             ))}
           </div>
         ) : null}
-        <Button disabled={!categoryId || !subcategoryId || !title.trim() || !description.trim() || isSubmitting}>
+        <Button disabled={!categoryId || !subcategoryId || !title.trim() || isSubmitting}>
           <Save className="h-4 w-4" /> {isSubmitting ? "Vista..." : "Stofna atriði"}
         </Button>
         {errorMessage ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{errorMessage}</p> : null}
