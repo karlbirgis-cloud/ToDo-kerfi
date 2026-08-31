@@ -10,6 +10,9 @@ import { useAppData } from "@/lib/data-provider";
 import { cn, percent, summarizeTasks, tasksFor } from "@/lib/utils";
 import type { AppData, InspectionChecklistItem, InspectionRunItemStatus } from "@/lib/types";
 
+const DEFAULT_INSPECTION_TYPE_NAME = "Öryggisúttekt";
+const DEFAULT_LOCATION_NAME = "Gjúkabryggja 10-12";
+
 export default function InspectionPage() {
   const { data, completeTask, flushPendingCloudSave, getOrCreateInspectionRun, updateInspectionRunItem } = useAppData();
   const [inspectionTypeId, setInspectionTypeId] = useState("");
@@ -42,7 +45,7 @@ export default function InspectionPage() {
   );
 
   useEffect(() => {
-    const preferred = inspectionTypes.find((item) => item.name.toLowerCase().includes("afhendingu")) ?? inspectionTypes[0];
+    const preferred = inspectionTypes.find((item) => normalize(item.name) === normalize(DEFAULT_INSPECTION_TYPE_NAME)) ?? inspectionTypes[0];
     if (!inspectionTypeId && preferred) setInspectionTypeId(preferred.id);
     if (inspectionTypeId && !inspectionTypes.some((item) => item.id === inspectionTypeId)) setInspectionTypeId(preferred?.id ?? "");
   }, [inspectionTypeId, inspectionTypes]);
@@ -53,7 +56,10 @@ export default function InspectionPage() {
   }, [projectId, projects]);
 
   useEffect(() => {
-    if (!locations.some((location) => location.id === locationId)) setLocationId(locations[0]?.id ?? "");
+    if (!locations.some((location) => location.id === locationId)) {
+      const preferred = locations.find((location) => normalize(location.name) === normalize(DEFAULT_LOCATION_NAME)) ?? locations[0];
+      setLocationId(preferred?.id ?? "");
+    }
   }, [locationId, locations]);
 
   useEffect(() => {
@@ -811,4 +817,8 @@ function summarizeChecklist(total: number, runItems: Array<{ status: InspectionR
     unchecked: Math.max(0, total - checked),
     progress: percent(checked, total)
   };
+}
+
+function normalize(value: string) {
+  return value.trim().toLocaleLowerCase("is");
 }
