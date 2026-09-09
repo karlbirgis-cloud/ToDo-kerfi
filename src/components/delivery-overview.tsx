@@ -37,11 +37,13 @@ type StatusFilter = TaskStatus | "";
 type InspectionTypeFilter = "" | "before_delivery" | "handover";
 
 export function DeliveryOverview({
+  fixedInspectionTypeFilter,
   locationLabel,
   locationName,
   locationNames,
   title
 }: {
+  fixedInspectionTypeFilter?: InspectionTypeFilter;
   locationLabel?: string;
   locationName?: string;
   locationNames?: string[];
@@ -54,10 +56,16 @@ export function DeliveryOverview({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const selectedLocationNames = useMemo(() => locationNames ?? (locationName ? [locationName] : []), [locationName, locationNames]);
   const selectedLocationLabel = locationLabel ?? selectedLocationNames.join(" og ");
+  const selectedInspectionTypeFilter = fixedInspectionTypeFilter ?? inspectionTypeFilter;
+  const overviewDescription = fixedInspectionTypeFilter === "before_delivery"
+    ? "fyrir afhendingu"
+    : fixedInspectionTypeFilter === "handover"
+      ? "við afhendingu"
+      : "fyrir afhendingu og við afhendingu";
   const tasks = useMemo(() => getDeliveryTasks(data, selectedLocationNames), [data, selectedLocationNames]);
   const inspectionTypeFilteredTasks = useMemo(
-    () => tasks.filter((task) => taskMatchesInspectionTypeFilter(task, data, inspectionTypeFilter)),
-    [data, inspectionTypeFilter, tasks]
+    () => tasks.filter((task) => taskMatchesInspectionTypeFilter(task, data, selectedInspectionTypeFilter)),
+    [data, selectedInspectionTypeFilter, tasks]
   );
   const statusFilteredTasks = useMemo(
     () => statusFilter ? inspectionTypeFilteredTasks.filter((task) => task.status === statusFilter) : inspectionTypeFilteredTasks,
@@ -69,8 +77,9 @@ export function DeliveryOverview({
     [responsibleFilterId, statusFilteredTasks]
   );
   const unitGroups = useMemo(() => getUnitGroups(data, selectedLocationNames, filteredTasks), [data, selectedLocationNames, filteredTasks]);
+  const totalTaskCount = fixedInspectionTypeFilter ? inspectionTypeFilteredTasks.length : tasks.length;
   const selectedResponsiblePartyName = responsibleOptions.find((option) => option.id === responsibleFilterId)?.name;
-  const selectedInspectionTypeFilterName = getInspectionTypeFilterName(inspectionTypeFilter);
+  const selectedInspectionTypeFilterName = getInspectionTypeFilterName(selectedInspectionTypeFilter);
   const selectedStatusFilterName = getStatusFilterName(statusFilter);
 
   useEffect(() => {
@@ -110,7 +119,7 @@ export function DeliveryOverview({
           <div className="border-b border-slate-100 p-4">
             <h2 className="font-bold text-ink">Atriði eftir íbúðum</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {filteredTasks.length} af {tasks.length} athugasemdum í {PROJECT_NAME}, {selectedLocationLabel}, fyrir afhendingu og við afhendingu.
+              {filteredTasks.length} af {totalTaskCount} athugasemdum í {PROJECT_NAME}, {selectedLocationLabel}, {overviewDescription}.
             </p>
           </div>
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-end lg:justify-between">
@@ -144,21 +153,23 @@ export function DeliveryOverview({
                   ))}
                 </select>
               </label>
-              <label className="grid gap-1 text-sm font-semibold text-slate-700">
-                Tegund úttektar
-                <select
-                  value={inspectionTypeFilter}
-                  onChange={(event) => {
-                    setInspectionTypeFilter(event.target.value as InspectionTypeFilter);
-                    setResponsibleFilterId("");
-                  }}
-                  className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-                >
-                  <option value="">Allar athugasemdir</option>
-                  <option value="before_delivery">Fyrir afhendingu</option>
-                  <option value="handover">Við afhendingu</option>
-                </select>
-              </label>
+              {fixedInspectionTypeFilter ? null : (
+                <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                  Tegund úttektar
+                  <select
+                    value={inspectionTypeFilter}
+                    onChange={(event) => {
+                      setInspectionTypeFilter(event.target.value as InspectionTypeFilter);
+                      setResponsibleFilterId("");
+                    }}
+                    className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+                  >
+                    <option value="">Allar athugasemdir</option>
+                    <option value="before_delivery">Fyrir afhendingu</option>
+                    <option value="handover">Við afhendingu</option>
+                  </select>
+                </label>
+              )}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
