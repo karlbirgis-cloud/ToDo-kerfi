@@ -117,7 +117,7 @@ function LocationSections({ tasks, data, onPrint }: { tasks: Task[]; data: AppDa
               <Button
                 type="button"
                 disabled={locationTasks.length === 0}
-                className="bg-white text-slate-900 hover:bg-slate-100 disabled:bg-white/60 disabled:text-slate-500"
+                className="!bg-white !text-slate-900 hover:!bg-slate-100 disabled:!bg-white/60 disabled:!text-slate-500"
                 onClick={() => onPrint({
                   categoryName: "Allir flokkar",
                   locationName,

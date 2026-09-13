@@ -331,7 +331,7 @@ function UnitSections({
             </div>
             <Button
               type="button"
-              className="bg-white text-slate-900 hover:bg-slate-100"
+              className="!bg-white !text-slate-900 hover:!bg-slate-100"
               onClick={() => onPrint({
                 locationName,
                 mode: "detailed",
