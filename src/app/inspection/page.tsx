@@ -99,6 +99,7 @@ export default function InspectionPage() {
     .filter((task) => task.inspection_run_item_id && runItemIds.has(task.inspection_run_item_id) && task.status !== "done")
     .sort((a, b) => a.title.localeCompare(b.title, "is", { numeric: true }));
   const unitTasks = unit ? tasksFor(data, { unit_id: unit.id }) : [];
+  const manualTasks = unitTasks.filter((task) => task.inspection_type_id === inspectionTypeId);
   const summary = summarizeTasks(unitTasks);
   const checklistSummary = summarizeChecklist(checklistItems.length, effectiveRunItems);
   const groupedItems = groupChecklistItems(checklistItems);
@@ -238,6 +239,7 @@ export default function InspectionPage() {
           {!unit ? (
             <EmptyState title="Veldu rými til að byrja" body="Veldu verkefni, götu og íbúð eða rými til að opna loka skoðunina." />
           ) : !template ? (
+            <>
             <ManualInspectionIssuePanel
               data={data}
               inspectionTypeId={inspectionTypeId}
@@ -249,6 +251,21 @@ export default function InspectionPage() {
               unitName={unit.name}
               onSaved={() => flushPendingCloudSave().catch(() => undefined)}
             />
+            <section>
+              <h2 className="mb-3 flex items-center gap-2 font-bold text-ink">
+                <ListChecks className="h-4 w-4" /> Skráð atriði · {manualTasks.length}
+              </h2>
+              {manualTasks.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {manualTasks.map((task) => (
+                    <TaskCard key={task.id} task={task} data={data} onDone={() => completeTask(task.id)} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="Engin atriði skráð" body="Atriði fyrir valda tegund úttektar og rými birtast hér eftir skráningu." />
+              )}
+            </section>
+            </>
           ) : (
             <>
               <Card>
@@ -345,6 +362,8 @@ function ManualInspectionIssuePanel({
   unitName: string;
 }) {
   const { addTaskImages, createTask, flushPendingCloudSave } = useAppData();
+  const isEmail = data.inspection_types.some((type) => type.id === inspectionTypeId &&
+    (type.id === "inspection_type_email" || normalize(type.name) === normalize("Frá tölvupósti")));
   const activeCategories = data.categories.filter((category) => category.is_active).sort((a, b) => a.sort_order - b.sort_order);
   const [categoryId, setCategoryId] = useState(activeCategories[0]?.id ?? "");
   const subcategories = data.subcategories
@@ -376,6 +395,11 @@ function ManualInspectionIssuePanel({
           <AlertTriangle className="h-5 w-5" /> Stofna nýtt atriði
         </h2>
         <p className="mt-1 text-sm font-semibold text-slate-500">{projectName} · {locationName} · {unitName}</p>
+        {isEmail ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Skráðu hvert verk úr tölvupósti kaupanda sem sérstakt atriði. Settu textann sem á við í lýsingu ásamt nafni sendanda og dagsetningu póstsins. Veldu flokk og ábyrgðaraðila og bættu við myndum ef þarf.
+          </p>
+        ) : null}
       </div>
       <form
         className="grid gap-3"
@@ -437,7 +461,7 @@ function ManualInspectionIssuePanel({
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
             className="rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-            placeholder="Skrifaðu hvað þarf að laga eða skoða, ef þörf er á nánari lýsingu"
+            placeholder={isEmail ? "Texti úr tölvupósti, sendandi og dagsetning. Hvað þarf að framkvæma?" : "Skrifaðu hvað þarf að laga eða skoða, ef þörf er á nánari lýsingu"}
           />
         </label>
         <div className="grid gap-3 md:grid-cols-3">

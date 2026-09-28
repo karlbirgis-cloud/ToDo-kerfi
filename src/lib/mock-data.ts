@@ -50,7 +50,8 @@ export const defaultSubcategories: Subcategory[] = Object.entries(subcategoryGro
 export const defaultInspectionTypes: InspectionType[] = [
   { id: "inspection_type_1", name: "Öryggisúttekt" },
   { id: "inspection_type_final_delivery", name: "Loka skoðun fyrir afhendingu" },
-  { id: "inspection_type_3", name: "Afhending" }
+  { id: "inspection_type_3", name: "Afhending" },
+  { id: "inspection_type_email", name: "Frá tölvupósti" }
 ].map((inspectionType, index) => ({
   ...inspectionType,
   sort_order: index + 1,
