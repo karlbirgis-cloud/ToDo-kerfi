@@ -10,8 +10,8 @@ import { useAppData } from "@/lib/data-provider";
 import { cn, percent, summarizeTasks, tasksFor } from "@/lib/utils";
 import type { AppData, InspectionChecklistItem, InspectionRunItemStatus } from "@/lib/types";
 
-const DEFAULT_INSPECTION_TYPE_NAME = "Öryggisúttekt";
-const DEFAULT_LOCATION_NAME = "Gjúkabryggja 10-12";
+const DEFAULT_INSPECTION_TYPE_NAME = "Loka skoðun fyrir afhendingu";
+const DEFAULT_LOCATION_NAME = "Endilsbryggja 24";
 
 export default function InspectionPage() {
   const { data, completeTask, flushPendingCloudSave, getOrCreateInspectionRun, updateInspectionRunItem } = useAppData();
@@ -51,9 +51,11 @@ export default function InspectionPage() {
   }, [inspectionTypeId, inspectionTypes]);
 
   useEffect(() => {
-    if (!projectId && projects[0]) setProjectId(projects[0].id);
-    if (projectId && !projects.some((project) => project.id === projectId)) setProjectId(projects[0]?.id ?? "");
-  }, [projectId, projects]);
+    const preferredLocation = data.locations.find((location) => normalize(location.name) === normalize(DEFAULT_LOCATION_NAME));
+    const preferred = projects.find((project) => project.id === preferredLocation?.project_id) ?? projects[0];
+    if (!projectId && preferred) setProjectId(preferred.id);
+    if (projectId && !projects.some((project) => project.id === projectId)) setProjectId(preferred?.id ?? "");
+  }, [data.locations, projectId, projects]);
 
   useEffect(() => {
     if (!locations.some((location) => location.id === locationId)) {

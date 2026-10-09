@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/afhending-b25-27-og-b29-31", label: "B25-27 og B29-31", mobileLabel: "B25/B29", icon: ClipboardCheck },
   { href: "/afhending-g10-12", label: "Afhending G10-12", mobileLabel: "G10-12", icon: ClipboardCheck },
+  { href: "/afhending-e24", label: "Afhending E24", mobileLabel: "Afh. E24", icon: ClipboardCheck },
   { href: "/safety-e24", label: "Öryggisúttekt E24", mobileLabel: "Öryggi E24", icon: ShieldCheck },
   { href: "/dashboard", label: "Dashboard", mobileLabel: "Yfirlit", icon: BarChart3 },
   { href: "/inspection", label: "Úttekt", mobileLabel: "Úttekt", icon: ClipboardCheck },
